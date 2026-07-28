@@ -2,7 +2,47 @@
 
 A cross-platform GUI for simulating three-wave mixing processes (SHG, SFG,
 OPG, DFG) in nonlinear crystals, with CPU (OpenMP) and GPU (CUDA) simulation
-engines.
+engines. The app allows you to load your own nonlinear crystals and use them
+to simulate three-wave mixing processes, including the effects of linear and
+nonlinear absorption, dispersion, and diffraction, considering both pulsed
+and continuous-wave (cw) regimes.
+
+## Package Description
+
+**BRAHMS** is a GPU-accelerated toolkit that simulates the coupled wave
+equations (CWEs) describing three-wave mixing (TWM) processes in
+second-order nonlinear media. The physics solved in the package is written
+to be as general as possible, including diffraction and dispersion effects
+within a single simulation. This means that the model is based on a
+(3+1)D physical problem (three spatial dimensions and one temporal
+dimension). The model incorporates terms for diffraction, dispersion, and
+linear and nonlinear absorptions.
+
+With this package, users can:
+- Calculate the (3+1)D-electric fields involved, $A_{\lambda} = A_{\lambda}(x,y,z,t)$,
+  in Sum Frequency Generation (SFG) (keep in mind that second harmonic
+  generation (SHG) is a particular case of SFG) and optical parametric
+  generation (OPG) processes.
+
+$$ \frac{\partial A_{p}}{\partial z} = i\kappa_p A_{s} A_{i}e^{\mp i\Delta k z} + \left(\hat{\mathcal{D}}^{(\tau)}_{p}+\hat{\mathcal{D}}^{(xy)}_{p} - \frac{\alpha_p}{2} \right)A_{p} $$
+$$ \frac{\partial A_{s}}{\partial z} = i\kappa_s A_{p} A_{i}^*e^{\pm i\Delta k z} + \left(\hat{\mathcal{D}}^{(\tau)}_{s}+\hat{\mathcal{D}}^{(xy)}_{s} - \frac{\alpha_s}{2} \right)A_{s} $$
+$$ \frac{\partial A_{i}}{\partial z} = i\kappa_i A_{p} A_{s}^*e^{\pm i\Delta k z} + \left(\hat{\mathcal{D}}^{(\tau)}_{i}+\hat{\mathcal{D}}^{(xy)}_{i} - \frac{\alpha_i}{2} \right)A_{i}$$
+
+where
+
+$$\hat{\mathcal{D}}^{(\tau)}_{\lambda} = -\left[ \frac{\alpha_{\lambda}}{2}+ \left(\frac{1}{\nu_s} - \frac{1}{\nu_{\lambda}}\right) \frac{\partial}{\partial \tau}+i\frac{k^{''}_{\lambda}}{2}\frac{\partial^2}{\partial \tau^2} + i\frac{k^{'''}_{\lambda}}{3}\frac{\partial^3}{\partial \tau^3} \right]$$
+
+and
+
+$$  \hat{\mathcal{D}}^{(xy)}_{\lambda} = - \frac{i}{2k_{\lambda}}\left(\frac{\partial^2}{\partial x^2}+\frac{\partial^2}{\partial y^2}\right) $$
+
+- Simulate both continuous-wave (cw) and pulsed pumping, using either
+  focused Gaussian or plane-wave beams.
+- For pulsed cases (femtosecond and picosecond regimes), the package
+  efficiently simulates the simultaneous effects of dispersion and
+  diffraction ((3+1)D problem).
+
+---
 
 ## Requirements
 
