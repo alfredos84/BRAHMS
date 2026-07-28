@@ -155,10 +155,18 @@ class SweepWorker(QObject):
             f"[BUILD] make NX={grid['NX']} NY={grid['NY']} "
             f"NZ={grid['NZ']} NT={grid['NT']} ...")
 
-        self._proc = subprocess.Popen(
-            ["make"] + make_args,
-            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
-        )
+        try:
+            self._proc = subprocess.Popen(
+                ["make"] + make_args,
+                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
+            )
+        except OSError as e:
+            self.log_line.emit(
+                f"[ERROR] Could not run 'make': {e}\n"
+                f"        No C++ build toolchain found in PATH. Install "
+                f"MSYS2/MinGW (or use WSL) — see install/setup_windows.ps1 "
+                f"for instructions — then try again.")
+            return None
         for line in self._proc.stdout:
             line = line.rstrip()
             if line:

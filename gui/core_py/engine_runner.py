@@ -123,7 +123,16 @@ class EngineRunner(QObject):
         self._proc_make.readyReadStandardOutput.connect(self._on_make_stdout)
         self._proc_make.readyReadStandardError.connect(self._on_make_stderr)
         self._proc_make.finished.connect(self._on_make_done)
+        self._proc_make.errorOccurred.connect(self._on_make_error)
         self._proc_make.start("make", args)
+
+    def _on_make_error(self, error):
+        if error == QProcess.ProcessError.FailedToStart:
+            self.log_line.emit(
+                "[ERROR] Could not run 'make' — no C++ build toolchain found "
+                "in PATH. On Windows, install MSYS2/MinGW (or use WSL) — see "
+                "install/setup_windows.ps1 for instructions — then try again.")
+            self.finished.emit(False, "")
 
     def _on_make_stdout(self):
         data = self._proc_make.readAllStandardOutput().data().decode("utf-8", "replace")
