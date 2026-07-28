@@ -1,0 +1,25 @@
+# ── Python ───────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+venv/
+*.egg-info/
+
+# ── Compiled engine binaries (built locally by the installers) ────────
+engine_omp/twm_cpu
+engine_omp/twm_cpu_*
+engine_omp/bench_*
+engine_omp/*.o
+engine_gpu/twm
+engine_gpu/*.o
+
+# ── Runtime data (regenerated automatically) ───────────────────────────
+crystals/*.db
+crystals/*.db-shm
+crystals/*.db-wal
+output/
+output_full/
+
+# ── OS / editor cruft ───────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+*.swp

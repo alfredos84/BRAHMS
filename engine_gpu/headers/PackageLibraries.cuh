@@ -1,0 +1,11 @@
+// Engine include order — NX/NY/NZ/NT are injected as -D macros at compile time.
+#include "DataTypes.cuh"
+#include "Common.cuh"
+#include "Operators.cuh"
+#include "Files.cuh"
+#include "Crystal.cuh"
+#include "EFields.cuh"
+#include "PhaseMatching.cuh"
+#include "Tfield.cuh"
+#include "Solver.cuh"
+#include "SaveOutputs.cuh"

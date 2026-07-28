@@ -1,0 +1,6 @@
+PyQt6>=6.4.0
+matplotlib>=3.7.0
+numpy>=1.24.0
+scipy>=1.10.0
+sympy>=1.12
+h5py>=3.8.0
