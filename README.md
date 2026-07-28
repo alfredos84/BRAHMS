@@ -37,9 +37,7 @@ $$  \hat{\mathcal{D}}^{(xy)}_{\lambda} = - \frac{i}{2k_{\lambda}}\left(\frac{\pa
 - Python 3.10+
 - Linux: a C++ compiler (g++), FFTW3, HDF5, nlohmann/json — installed
   automatically by `install/setup_linux.sh`.
-- Recommended: an NVIDIA GPU + CUDA Toolkit, to build and use the GPU
-  engine (the one BRAHMS was originally designed for). Without a GPU, the
-  app falls back to the CPU/OpenMP engine.
+- Recommended: an NVIDIA GPU + CUDA Toolkit, to build and use the GPU engine (the one BRAHMS was originally designed for). Without a GPU, the app falls back to the CPU/OpenMP engine.
 
 ## Install
 
