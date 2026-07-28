@@ -62,18 +62,52 @@ bash install/run_brahms.sh
 
 ### Windows
 
-```powershell
+Prerequisites: [Python 3](https://www.python.org/downloads/) (check "Add
+python.exe to PATH" during install) and
+[Git for Windows](https://git-scm.com/download/win).
+
+```cmd
 git clone https://github.com/alfredos84/BRAHMS.git
 cd BRAHMS
 powershell -ExecutionPolicy Bypass -File install\setup_windows.ps1
 ```
 
+`-ExecutionPolicy Bypass` only skips Windows' default block on running
+downloaded `.ps1` scripts for this one invocation — it does not change any
+system-wide setting, and no admin rights are needed.
+
 This creates a Python virtual environment and a **BRAHMS** shortcut on your
-Desktop and Start Menu. Building the C++ simulation engines on native
-Windows needs an extra manual step (MSYS2/MinGW for the CPU engine, CUDA
-Toolkit + MSVC for the GPU engine) — see the comments at the top of
-`install/setup_windows.ps1` for exact commands, or use WSL and run the
-Linux installer instead.
+Desktop and Start Menu — the GUI itself is ready to use at this point. To
+also *run simulations* you additionally need a C++ compiler, which Windows
+does not ship by default:
+
+**CPU engine (engine_omp) — works on any machine:**
+
+1. Install [MSYS2](https://www.msys2.org/) (default folder `C:\msys64`).
+2. Open **"MSYS2 MinGW x64"** from the Start Menu (not "MSYS2 MSYS" or
+   "UCRT64").
+3. Run `pacman -Syu`. If it asks you to close the terminal, reopen "MSYS2
+   MinGW x64" and run `pacman -Syu` again — repeat until it reports nothing
+   left to update. (MSYS2 does not support partial upgrades; skipping this
+   causes a dependency-conflict error on the next step.)
+4. Install the toolchain:
+   ```bash
+   pacman -S mingw-w64-x86_64-gcc mingw-w64-x86_64-make mingw-w64-x86_64-fftw mingw-w64-x86_64-hdf5 mingw-w64-x86_64-nlohmann-json
+   ```
+5. Add `C:\msys64\mingw64\bin` to your PATH (search "Environment Variables"
+   in the Start Menu → Edit the `Path` user variable → New).
+6. Open a **new** `cmd` window and confirm `g++ --version` and
+   `mingw32-make --version` both print a version.
+
+**GPU engine (engine_gpu) — optional, needs an NVIDIA GPU:** install the
+[CUDA Toolkit](https://developer.nvidia.com/cuda-downloads) and Visual
+Studio Build Tools (the "Desktop development with C++" workload, for
+`cl.exe`), then build from an "x64 Native Tools Command Prompt". This path
+is less exercised on Windows than the CPU engine above.
+
+**Alternative:** skip the compiler setup entirely by installing
+[WSL](https://learn.microsoft.com/windows/wsl/install) (`wsl --install`,
+needs admin rights) and running `install/setup_linux.sh` inside it.
 
 ## Manual run (any platform, if you prefer not to use the installers)
 
