@@ -9,10 +9,16 @@
 # What it does NOT do (documented, manual steps below):
 #   - Build engine_omp (CPU/OpenMP engine): needs a C++ compiler with
 #     OpenMP + FFTW3 + HDF5 + nlohmann/json, which Windows does not ship.
-#     Easiest path: install MSYS2 (https://www.msys2.org/), then from the
-#     MSYS2 MinGW64 shell:
-#         pacman -S mingw-w64-x86_64-gcc mingw-w64-x86_64-fftw \
-#                   mingw-w64-x86_64-hdf5 mingw-w64-x86_64-nlohmann-json make
+#     Easiest path: install MSYS2 (https://www.msys2.org/), run "pacman -Syu"
+#     until it reports nothing left to update (MSYS2 does not support partial
+#     upgrades), then from the MSYS2 MinGW64 shell:
+#         pacman -S mingw-w64-x86_64-gcc mingw-w64-x86_64-make \
+#                   mingw-w64-x86_64-fftw mingw-w64-x86_64-hdf5 \
+#                   mingw-w64-x86_64-nlohmann-json
+#     Note: the package is "mingw-w64-x86_64-make", NOT the bare "make"
+#     package (that one installs the MSYS runtime's own make, which this
+#     app's build step does not use). It provides mingw32-make.exe.
+#     Add C:\msys64\mingw64\bin to your PATH, then:
 #         cd engine_omp && mingw32-make
 #     Alternative: use WSL (Windows Subsystem for Linux) and run
 #     install/setup_linux.sh inside it - the GUI can call into WSL.
