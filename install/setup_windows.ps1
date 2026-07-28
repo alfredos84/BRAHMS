@@ -1,5 +1,5 @@
-# ============================================================
-# BRAHMS — Windows installer
+﻿# ============================================================
+# BRAHMS - Windows installer
 #
 # What this does:
 #   1. Creates a Python virtual environment and installs requirements.txt
@@ -15,12 +15,12 @@
 #                   mingw-w64-x86_64-hdf5 mingw-w64-x86_64-nlohmann-json make
 #         cd engine_omp && mingw32-make
 #     Alternative: use WSL (Windows Subsystem for Linux) and run
-#     install/setup_linux.sh inside it — the GUI can call into WSL.
+#     install/setup_linux.sh inside it - the GUI can call into WSL.
 #   - Build engine_gpu (CUDA engine): needs the NVIDIA CUDA Toolkit and
 #     Visual Studio Build Tools (MSVC). Install both, open an
 #     "x64 Native Tools Command Prompt", then:
 #         cd engine_gpu && nmake /f Makefile.win     (or run nvcc by hand)
-#     A ready-made Windows Makefile is not shipped yet — this is the one
+#     A ready-made Windows Makefile is not shipped yet - this is the one
 #     manual step left for CUDA users on native Windows.
 #
 # Usage (from an ordinary PowerShell prompt, no admin rights needed):
@@ -33,7 +33,7 @@ $ErrorActionPreference = "Stop"
 $RootDir = (Resolve-Path "$PSScriptRoot\..").Path
 Set-Location $RootDir
 
-# ── Find a Python 3 interpreter ─────────────────────────────────────────
+# -- Find a Python 3 interpreter
 $PythonCmd = $null
 foreach ($cand in @("py -3", "python", "python3")) {
     $parts = $cand -split " "
@@ -49,7 +49,7 @@ if (-not $PythonCmd) {
 }
 Write-Host "==> Using Python: $PythonCmd"
 
-# ── Virtual environment ──────────────────────────────────────────────────
+# -- Virtual environment
 Write-Host "==> Creating virtual environment: venv\"
 Invoke-Expression "$PythonCmd -m venv venv"
 
@@ -60,21 +60,21 @@ Write-Host "==> Installing Python packages..."
 & $VenvPython -m pip install --upgrade pip -q
 & $VenvPython -m pip install -r requirements.txt -q
 
-# ── Optional: try building the CPU engine if a MinGW toolchain is present ─
+# -- Optional: try building the CPU engine if a MinGW toolchain is present -
 $make = Get-Command mingw32-make -ErrorAction SilentlyContinue
 $gpp  = Get-Command g++ -ErrorAction SilentlyContinue
 if ($make -and $gpp) {
-    Write-Host "==> MinGW toolchain found — building CPU engine (engine_omp)..."
+    Write-Host "==> MinGW toolchain found - building CPU engine (engine_omp)..."
     Push-Location "$RootDir\engine_omp"
-    try { & mingw32-make -B } catch { Write-Warning "CPU engine build failed — see manual steps in this script's header." }
+    try { & mingw32-make -B } catch { Write-Warning "CPU engine build failed - see manual steps in this script's header." }
     Pop-Location
 } else {
     Write-Host "==> No MinGW toolchain (g++ / mingw32-make) found in PATH."
-    Write-Host "    Skipping engine build — see this script's header for manual setup"
+    Write-Host "    Skipping engine build - see this script's header for manual setup"
     Write-Host "    (MSYS2/MinGW-w64, or use WSL). The GUI itself still runs fine."
 }
 
-# ── Desktop shortcut ─────────────────────────────────────────────────────
+# -- Desktop shortcut
 Write-Host "==> Creating Desktop shortcut..."
 $IconPath = Join-Path $RootDir "icon\icon.ico"
 $Desktop  = [Environment]::GetFolderPath("Desktop")
@@ -93,7 +93,7 @@ $Shortcut.Save()
 $StartMenu = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs"
 Copy-Item $ShortcutPath (Join-Path $StartMenu "BRAHMS.lnk") -Force
 
-# ── Convenience launcher for the command line ────────────────────────────
+# -- Convenience launcher for the command line
 $LauncherBat = Join-Path $RootDir "install\run_brahms.bat"
 @"
 @echo off
