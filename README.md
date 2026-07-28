@@ -1,22 +1,10 @@
 # BRAHMS — Three-Wave Mixing Simulator
 
-A cross-platform GUI for simulating three-wave mixing processes (SHG, SFG,
-OPG, DFG) in nonlinear crystals, with CPU (OpenMP) and GPU (CUDA) simulation
-engines. The app allows you to load your own nonlinear crystals and use them
-to simulate three-wave mixing processes, including the effects of linear and
-nonlinear absorption, dispersion, and diffraction, considering both pulsed
-and continuous-wave (cw) regimes.
+A cross-platform GUI for simulating three-wave mixing processes (SHG, SFG, OPG, DFG) in nonlinear crystals, with CPU (OpenMP) and GPU (CUDA) simulation engines. The app allows you to load your own nonlinear crystals and use them to simulate three-wave mixing processes, including the effects of linear and nonlinear absorption, dispersion, and diffraction, considering both pulsed and continuous-wave (cw) regimes.
 
 ## Package Description
 
-**BRAHMS** is a GPU-accelerated toolkit that simulates the coupled wave
-equations (CWEs) describing three-wave mixing (TWM) processes in
-second-order nonlinear media. The physics solved in the package is written
-to be as general as possible, including diffraction and dispersion effects
-within a single simulation. This means that the model is based on a
-(3+1)D physical problem (three spatial dimensions and one temporal
-dimension). The model incorporates terms for diffraction, dispersion, and
-linear and nonlinear absorptions.
+**BRAHMS** is a GPU-accelerated toolkit that simulates the coupled wave equations (CWEs) describing three-wave mixing (TWM) processes in second-order nonlinear media. The physics solved in the package is written to be as general as possible, including diffraction and dispersion effects within a single simulation. This means that the model is based on a (3+1)D physical problem (three spatial dimensions and one temporal dimension). The model incorporates terms for diffraction, dispersion, and linear and nonlinear absorptions.
 
 With this package, users can:
 - Calculate the (3+1)D-electric fields involved, $A_{\lambda} = A_{\lambda}(x,y,z,t)$,
