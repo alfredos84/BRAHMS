@@ -2,6 +2,8 @@
 
 A cross-platform GUI for simulating three-wave mixing processes (SHG, SFG, OPG, DFG) in nonlinear crystals, with both a GPU (CUDA) and a CPU (OpenMP) simulation engine. BRAHMS was originally designed to run on GPU — that is the recommended engine for production runs — and the CPU/OpenMP engine was added afterwards so the app also runs on machines without an NVIDIA GPU. The app allows you to load your own nonlinear crystals and use them to simulate three-wave mixing processes, including the effects of linear and nonlinear absorption, dispersion, and diffraction, considering both pulsed and continuous-wave (cw) regimes.
 
+![Example of the app output](./figures/plot_window_example.png)
+
 ## Package Description
 
 **BRAHMS** is a GPU-accelerated toolkit that simulates the coupled wave equations (CWEs) describing three-wave mixing (TWM) processes in second-order nonlinear media. The physics solved in the package is written to be as general as possible, including diffraction and dispersion effects within a single simulation. This means that the model is based on a (3+1)D physical problem (three spatial dimensions and one temporal dimension). The model incorporates terms for diffraction, dispersion, and linear and nonlinear absorptions.
