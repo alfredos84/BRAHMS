@@ -488,6 +488,9 @@ class CrystalsTab(QWidget):
             ("β pump (μm/W)",        "sb_beta_p",  _sb(0, 1, 8, 0.0)),
             ("β signal (μm/W)",      "sb_beta_s",  _sb(0, 1, 8, 5e-5)),
             ("β idler (μm/W)",       "sb_beta_i",  _sb(0, 1, 8, 0.0)),
+            ("ρ_p (rad)",            "sb_rho_p",   _sb(-1.5708, 1.5708, 6, 0.0)),
+            ("ρ_s (rad)",            "sb_rho_s",   _sb(-1.5708, 1.5708, 6, 0.0)),
+            ("ρ_i (rad)",            "sb_rho_i",   _sb(-1.5708, 1.5708, 6, 0.0)),
         ]
 
         # ── Thermal & QPM ──────────────────────────────────────────────
@@ -504,6 +507,8 @@ class CrystalsTab(QWidget):
         _ALPHA_CHK   = ("chk_alpha_p", "chk_alpha_s", "chk_alpha_i")
         _BETA_ATTRS  = ("sb_beta_p",   "sb_beta_s",   "sb_beta_i")
         _BETA_CHK    = ("chk_beta_p",  "chk_beta_s",  "chk_beta_i")
+        _RHO_ATTRS   = ("sb_rho_p",    "sb_rho_s",    "sb_rho_i")
+        _RHO_CHK     = ("chk_rho_p",   "chk_rho_s",   "chk_rho_i")
 
         all_fields = optical_fields + thermal_fields
         for row, (label, attr, widget) in enumerate(all_fields):
@@ -539,6 +544,14 @@ class CrystalsTab(QWidget):
                 chk = QCheckBox("on")
                 chk.setChecked(False)
                 chk.setToolTip("Enable two-photon absorption for this wave in the simulation")
+                setattr(self, chk_name, chk)
+                g.addWidget(chk, row, 2)
+
+            if attr in _RHO_ATTRS:
+                chk_name = _RHO_CHK[_RHO_ATTRS.index(attr)]
+                chk = QCheckBox("on")
+                chk.setChecked(False)
+                chk.setToolTip("Enable spatial walk-off for this wave in the simulation")
                 setattr(self, chk_name, chk)
                 g.addWidget(chk, row, 2)
 
@@ -597,6 +610,14 @@ class CrystalsTab(QWidget):
             "beta_p_active": self.chk_beta_p.isChecked(),
             "beta_s_active": self.chk_beta_s.isChecked(),
             "beta_i_active": self.chk_beta_i.isChecked(),
+        }
+
+    def rho_flags(self) -> dict:
+        """Return spatial walk-off on/off state for the three waves."""
+        return {
+            "rho_p_active": self.chk_rho_p.isChecked(),
+            "rho_s_active": self.chk_rho_s.isChecked(),
+            "rho_i_active": self.chk_rho_i.isChecked(),
         }
 
     def _build_sellmeier_tab(self):
@@ -1064,6 +1085,9 @@ class CrystalsTab(QWidget):
         self.sb_beta_p.setValue(cr.get("beta_p", 0.0))
         self.sb_beta_s.setValue(cr.get("beta_s", 0.0))
         self.sb_beta_i.setValue(cr.get("beta_i", 0.0))
+        self.sb_rho_p.setValue(cr.get("rho_p", 0.0))
+        self.sb_rho_s.setValue(cr.get("rho_s", 0.0))
+        self.sb_rho_i.setValue(cr.get("rho_i", 0.0))
 
         self.sb_kappa.setValue(cr.get("kappa", 4.6))
         self.sb_alpha_th.setValue(cr.get("alpha_th", 14.8e-6) * 1e6)
@@ -1134,6 +1158,7 @@ class CrystalsTab(QWidget):
             "deff": 25.0,
             "alpha_p": 0.0, "alpha_s": 0.0, "alpha_i": 0.0,
             "beta_p":  0.0, "beta_s":  0.0, "beta_i":  0.0,
+            "rho_p":   0.0, "rho_s":   0.0, "rho_i":   0.0,
             "formula_e": "", "formula_o": "",
             "coeffs_e": {}, "coeffs_o": {},
             "kappa": 4.6, "alpha_th": 14.8e-6, "cp": 628.0, "rho": 4640.0,
@@ -1174,6 +1199,9 @@ class CrystalsTab(QWidget):
             "beta_p":     self.sb_beta_p.value(),
             "beta_s":     self.sb_beta_s.value(),
             "beta_i":     self.sb_beta_i.value(),
+            "rho_p":      self.sb_rho_p.value(),
+            "rho_s":      self.sb_rho_s.value(),
+            "rho_i":      self.sb_rho_i.value(),
             "kappa":      self.sb_kappa.value(),
             "alpha_th":   self.sb_alpha_th.value() * 1e-6,
             "cp":         self.sb_cp.value(),
@@ -1209,6 +1237,9 @@ class CrystalsTab(QWidget):
             "beta_p":     self.sb_beta_p.value(),
             "beta_s":     self.sb_beta_s.value(),
             "beta_i":     self.sb_beta_i.value(),
+            "rho_p":      self.sb_rho_p.value(),
+            "rho_s":      self.sb_rho_s.value(),
+            "rho_i":      self.sb_rho_i.value(),
             "kappa":      self.sb_kappa.value(),
             "alpha_th":   self.sb_alpha_th.value() * 1e-6,
             "cp":         self.sb_cp.value(),

@@ -129,6 +129,7 @@ class MainWindow(QMainWindow):
         # Merge absorption and TPA on/off flags from Crystals tab
         params.update(self.crystal_tab.alpha_flags())
         params.update(self.crystal_tab.beta_flags())
+        params.update(self.crystal_tab.rho_flags())
 
         # Build config
         try:
@@ -157,6 +158,7 @@ class MainWindow(QMainWindow):
 
         params.update(self.crystal_tab.alpha_flags())
         params.update(self.crystal_tab.beta_flags())
+        params.update(self.crystal_tab.rho_flags())
 
         try:
             cfg = build_config(params)

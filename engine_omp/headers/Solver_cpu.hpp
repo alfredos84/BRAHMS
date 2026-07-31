@@ -212,9 +212,9 @@ struct Solver {
             A.apply_dispersion(A.Ai, Cr.b2i, Cr.b3i, GVM_i, Cr.dz);
 
             // 3. Diffraction (full step dz)
-            A.apply_diffraction(A.Ap, A._kp, Cr.dz);
-            A.apply_diffraction(A.As, A._ks, Cr.dz);
-            A.apply_diffraction(A.Ai, A._ki, Cr.dz);
+            A.apply_diffraction(A.Ap, A._kp, A._rho_p, Cr.dz);
+            A.apply_diffraction(A.As, A._ks, A._rho_s, Cr.dz);
+            A.apply_diffraction(A.Ai, A._ki, A._rho_i, Cr.dz);
 
             // 4. Second half-step nonlinear
             rk4_half(A.Ap, A.As, A.Ai,

@@ -657,6 +657,7 @@ class SweepTab(QWidget):
         if self._crystal_tab is not None:
             base_params.update(self._crystal_tab.alpha_flags())
             base_params.update(self._crystal_tab.beta_flags())
+            base_params.update(self._crystal_tab.rho_flags())
 
         # Inject forced Δk into base params (only when not sweeping dk itself)
         if key != "dk" and self.chk_force_dk.isChecked():

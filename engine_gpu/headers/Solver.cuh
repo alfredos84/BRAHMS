@@ -111,18 +111,24 @@ __global__ void kernelDispProduct(complex_t *Awp_pr, complex_t *Awp, complex_t *
 }
 
 // ── Diffraction propagator setup ──────────────────────────────────────────────
+// Includes an optional spatial walk-off term along x, linear in the spatial
+// frequency fx (analogous to the temporal walk-off term in the dispersion
+// propagator, linear in ω): the extra phase is dir·dz·2π·qx·tan(ρ_λ), with
+// ρ_λ the walk-off angle of wave λ (zero ⇒ no walk-off, recovers prior behaviour).
 __global__ void kernelDiffPropagators(complex_t *eQp, complex_t *eQs, complex_t *eQi,
                                        real_t uX, real_t uY, real_t dx, real_t dy, real_t dz,
-                                       real_t kp, real_t ks, real_t ki, int dir) {
+                                       real_t kp, real_t ks, real_t ki,
+                                       real_t rho_p, real_t rho_s, real_t rho_i, int dir) {
     uint32_t ix = threadIdx.x + blockDim.x * blockIdx.x;
     uint32_t iy = threadIdx.y + blockDim.y * blockIdx.y;
     if (ix >= NX || iy >= NY) return;
     real_t dfX = 1.0f / (dx * NX), dfY = 1.0f / (dy * NY);
     real_t qx = dfX*(ix-uX), qy = dfY*(iy-uY);
     real_t q2 = qx*qx + qy*qy;
-    eQp[IDX(ix,iy,0)] = CpxExp(dir * dz * 2.0f * PI * PI / kp * q2);
-    eQs[IDX(ix,iy,0)] = CpxExp(dir * dz * 2.0f * PI * PI / ks * q2);
-    eQi[IDX(ix,iy,0)] = CpxExp(dir * dz * 2.0f * PI * PI / ki * q2);
+    real_t twoPiQx = 2.0f * PI * qx;
+    eQp[IDX(ix,iy,0)] = CpxExp(dir * dz * (2.0f * PI * PI / kp * q2 + twoPiQx * tanf(rho_p)));
+    eQs[IDX(ix,iy,0)] = CpxExp(dir * dz * (2.0f * PI * PI / ks * q2 + twoPiQx * tanf(rho_s)));
+    eQi[IDX(ix,iy,0)] = CpxExp(dir * dz * (2.0f * PI * PI / ki * q2 + twoPiQx * tanf(rho_i)));
 }
 
 __global__ void kernelDiffProduct(complex_t *AQp_pr, complex_t *eQp, complex_t *AQp,
@@ -368,7 +374,8 @@ void Solver::set_diff_propagators() {
         thrust::raw_pointer_cast(A->eiQz_s.data()),
         thrust::raw_pointer_cast(A->eiQz_i.data()),
         0.5f*NX, 0.5f*NY, A->dx, A->dy, A->dz,
-        A->kp, A->ks, A->ki, -1);
+        A->kp, A->ks, A->ki,
+        A->rho_p, A->rho_s, A->rho_i, -1);
     CHECK(cudaDeviceSynchronize());
     A->fftShift2D(A->eiQz_p);
     A->fftShift2D(A->eiQz_s);

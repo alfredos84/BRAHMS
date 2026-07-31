@@ -191,6 +191,9 @@ def build_config(params: dict, db: CrystalDB | None = None) -> dict:
                 "beta_crp_um_W":  float(cr.get("beta_p", 0.0)) if params.get("beta_p_active", False) else 0.0,
                 "beta_crs_um_W":  float(cr.get("beta_s", 0.0)) if params.get("beta_s_active", False) else 0.0,
                 "beta_cri_um_W":  float(cr.get("beta_i", 0.0)) if params.get("beta_i_active", False) else 0.0,
+                "rho_p_rad":      float(cr.get("rho_p", 0.0)) if params.get("rho_p_active", False) else 0.0,
+                "rho_s_rad":      float(cr.get("rho_s", 0.0)) if params.get("rho_s_active", False) else 0.0,
+                "rho_i_rad":      float(cr.get("rho_i", 0.0)) if params.get("rho_i_active", False) else 0.0,
             },
             "qpm": {
                 "lambda0_um":   Lambda_um,

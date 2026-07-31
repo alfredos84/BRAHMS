@@ -86,6 +86,9 @@ struct Crystal {
     real_t beta_crp;     // pump TPA coefficient [μm/W]
     real_t beta_crs;     // signal TPA coefficient [μm/W]
     real_t beta_cri;     // idler TPA coefficient [μm/W]
+    real_t rho_p;        // pump   spatial walk-off angle [rad]
+    real_t rho_s;        // signal spatial walk-off angle [rad]
+    real_t rho_i;        // idler  spatial walk-off angle [rad]
 
     // ── QPM grating ──────────────────────────────────────────────────────────
     real_t Lambda0;      // grating period [μm]
@@ -162,6 +165,10 @@ struct Crystal {
         beta_crp  = nl.value("beta_crp_um_W", 0.0f);
         beta_crs  = nl.value("beta_crs_um_W", 0.0f);
         beta_cri  = nl.value("beta_cri_um_W", 0.0f);
+        // Spatial walk-off angles [rad] — zero by default (off)
+        rho_p     = nl.value("rho_p_rad", 0.0f);
+        rho_s     = nl.value("rho_s_rad", 0.0f);
+        rho_i     = nl.value("rho_i_rad", 0.0f);
 
         // QPM grating
         if (cr.contains("qpm")) {

@@ -171,6 +171,9 @@ CREATE TABLE IF NOT EXISTS crystals (
     beta_p      REAL    DEFAULT 0.0,
     beta_s      REAL    DEFAULT 0.0,
     beta_i      REAL    DEFAULT 0.0,
+    rho_p       REAL    DEFAULT 0.0,
+    rho_s       REAL    DEFAULT 0.0,
+    rho_i       REAL    DEFAULT 0.0,
     formula_e   TEXT    DEFAULT '',
     formula_o   TEXT    DEFAULT '',
     coeffs_e    TEXT    DEFAULT '{}',
@@ -212,6 +215,9 @@ class CrystalDB:
             ("beta_p", "REAL DEFAULT 0.0"),
             ("beta_s", "REAL DEFAULT 0.0"),
             ("beta_i", "REAL DEFAULT 0.0"),
+            ("rho_p", "REAL DEFAULT 0.0"),
+            ("rho_s", "REAL DEFAULT 0.0"),
+            ("rho_i", "REAL DEFAULT 0.0"),
             ("reference_bibtex", "TEXT DEFAULT ''"),
         ]:
             if col not in existing:

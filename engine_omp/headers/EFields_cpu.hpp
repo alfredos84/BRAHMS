@@ -31,6 +31,7 @@ struct EFields {
     cVec_t _buf_disp;          // [NX*NY*NT] in J2 layout for dispersion FFT
     real_t _dt;                // time step [ps]
     real_t _kp, _ks, _ki;     // wavenumbers at pump/signal/idler [μm⁻¹]
+    real_t _rho_p, _rho_s, _rho_i;  // spatial walk-off angles [rad]
     const Crystal* _Cr;
 
     EFields(real_t /*power*/, real_t /*waist*/, Crystal* Cr)
@@ -43,6 +44,7 @@ struct EFields {
         _kp = 2.0f * PI * Cr->np / Cr->lp;
         _ks = 2.0f * PI * Cr->ns / Cr->ls;
         _ki = 2.0f * PI * Cr->ni / Cr->li;
+        _rho_p = Cr->rho_p; _rho_s = Cr->rho_s; _rho_i = Cr->rho_i;
 
         // FFTW plans ─────────────────────────────────────────────────────────
         // Dispersion: batched 1D FFT of length NT, NX*NY batches, stride 1
@@ -215,7 +217,10 @@ struct EFields {
 
     // ── Diffraction step ──────────────────────────────────────────────────────
     // 2D paraxial propagation: exp(-i kperp²/(2k) dz) in kx-ky space.
-    void apply_diffraction(cVec_t& Afield, real_t k0, real_t dz)
+    // An optional spatial walk-off term along x, linear in kx (analogous to
+    // the temporal walk-off term in dispersion, linear in ω), adds a phase
+    // -kx·tan(rho)·dz; rho = 0 recovers the original behaviour.
+    void apply_diffraction(cVec_t& Afield, real_t k0, real_t rho, real_t dz)
     {
         if (NX <= 1 && NY <= 1) return;  // 1D: no diffraction
 
@@ -225,6 +230,7 @@ struct EFields {
             reinterpret_cast<fftwf_complex*>(Afield.data()));
 
         real_t norm = 1.0f / static_cast<real_t>(NX * NY);
+        real_t tan_rho = tanf(rho);
         #pragma omp parallel for collapse(3)
         for (uint32_t it = 0; it < NT; ++it)
         for (uint32_t iy = 0; iy < NY; ++iy)
@@ -233,7 +239,7 @@ struct EFields {
             int my = (iy < NY/2) ? (int)iy : (int)iy - NY;
             real_t kx = 2.0f * PI * mx / (_Cr->LX);
             real_t ky = 2.0f * PI * my / (_Cr->LY);
-            real_t phi = -(kx*kx + ky*ky) / (2.0f * k0) * dz;
+            real_t phi = -(kx*kx + ky*ky) / (2.0f * k0) * dz - kx * tan_rho * dz;
             Afield[IDX(ix,iy,it)] *= CpxExp(phi) * norm;
         }
 

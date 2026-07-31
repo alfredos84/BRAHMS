@@ -145,6 +145,7 @@ public:
     real_t b2p, b2s, b2i;
     real_t b3p, b3s, b3i;
     real_t alpha_crp, alpha_crs, alpha_cri;
+    real_t rho_p, rho_s, rho_i;      // spatial walk-off angles [rad]
     real_t kp, ks, ki;              // wavevectors [μm⁻¹]
     real_t kappa_p, kappa_s, kappa_i; // coupling coefficients [1/(V·μm)] — see note
     real_t dx, dy, dz;
@@ -179,6 +180,7 @@ public:
         alpha_crp = Cr->alpha_crp;
         alpha_crs = Cr->alpha_crs;
         alpha_cri = Cr->alpha_cri;
+        rho_p = Cr->rho_p; rho_s = Cr->rho_s; rho_i = Cr->rho_i;
         dx = Cr->dx; dy = Cr->dy; dz = Cr->dz;
         dk = Cr->dk;
         Lcr = Cr->Lcr;

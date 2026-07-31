@@ -41,6 +41,7 @@ struct Crystal {
     real_t dQ;                    // d_eff [pm/V]
     real_t alpha_crp, alpha_crs, alpha_cri;  // absorption [μm⁻¹]
     real_t beta_crp,  beta_crs,  beta_cri;   // TPA coefficients [μm/W]
+    real_t rho_p, rho_s, rho_i;              // spatial walk-off angles [rad]
 
     // QPM grating
     real_t Lambda0, T0, alpha_th;
@@ -103,6 +104,9 @@ struct Crystal {
         beta_crp  = nl.value("beta_crp_um_W", 0.0f);
         beta_crs  = nl.value("beta_crs_um_W", 0.0f);
         beta_cri  = nl.value("beta_cri_um_W", 0.0f);
+        rho_p     = nl.value("rho_p_rad", 0.0f);
+        rho_s     = nl.value("rho_s_rad", 0.0f);
+        rho_i     = nl.value("rho_i_rad", 0.0f);
 
         if (cr.contains("qpm")) {
             const auto& q = cr["qpm"];

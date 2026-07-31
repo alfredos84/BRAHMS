@@ -23,3 +23,6 @@ output_full/
 .DS_Store
 Thumbs.db
 *.swp
+
+# ── Local-only, not part of the GUI repo ────────────────────────────────
+BRAHMS_latex/
