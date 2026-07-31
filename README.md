@@ -24,7 +24,7 @@ $$\hat{\mathcal{D}}^{(\tau)}_{\lambda} = -\left[ \frac{\alpha_{\lambda}}{2}+ \le
 
 and
 
-$$  \hat{\mathcal{D}}^{(xy)}_{\lambda} = \frac{i}{2k_{\lambda}}\left(\frac{\partial^2}{\partial x^2}+\frac{\partial^2}{\partial y^2}\right) + \tan{\rho_{\lambda}}\frac{\partial}{\partial x} $$
+$$  \hat{\mathcal{D}}^{(xy)}_{\lambda} = -\frac{i}{2k_{\lambda}}\left(\frac{\partial^2}{\partial x^2}+\frac{\partial^2}{\partial y^2}\right) - \tan{\rho_{\lambda}}\frac{\partial}{\partial x} $$
 
 - Simulate both continuous-wave (cw) and pulsed pumping, using either
   focused Gaussian or plane-wave beams.
