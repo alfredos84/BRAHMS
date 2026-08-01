@@ -51,10 +51,7 @@ cd BRAHMS
 bash install/setup_linux.sh
 ```
 
-This installs system dependencies, creates a Python virtual environment,
-builds the CPU simulation engine (and the GPU engine too, if an NVIDIA GPU
-+ CUDA toolkit is detected), and adds a **BRAHMS** launcher to your
-applications menu and Desktop — just double-click it to open the app.
+This installs system dependencies, creates a Python virtual environment, builds the CPU simulation engine (and the GPU engine too, if an NVIDIA GPU and CUDA toolkit is detected), and adds a **BRAHMS** launcher to your applications menu and Desktop — just double-click it to open the app.
 
 To launch it manually instead:
 
