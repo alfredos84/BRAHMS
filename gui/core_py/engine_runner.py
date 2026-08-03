@@ -16,9 +16,19 @@ Flow:
 
 import json
 import os
+import shutil
 import subprocess
+import sys
 
 from PyQt6.QtCore import QObject, QProcess, pyqtSignal
+
+# MSYS2's mingw-w64 "make" package installs mingw32-make.exe, not make.exe
+# (see install/setup_windows.ps1). Prefer it on Windows, but fall back to
+# "make" in case the user has a different toolchain (e.g. WSL make on PATH).
+if sys.platform == "win32" and shutil.which("mingw32-make"):
+    MAKE_CMD = "mingw32-make"
+else:
+    MAKE_CMD = "make"
 
 
 class EngineRunner(QObject):
@@ -117,21 +127,22 @@ class EngineRunner(QObject):
                     f"NX={g['NX']}", f"NY={g['NY']}",
                     f"NZ={g['NZ']}", f"NT={g['NT']}",
                     f"ARCH={arch}"]
-        self.log_line.emit(f"[BUILD] make {' '.join(args)}")
+        self.log_line.emit(f"[BUILD] {MAKE_CMD} {' '.join(args)}")
 
         self._proc_make = QProcess(self)
         self._proc_make.readyReadStandardOutput.connect(self._on_make_stdout)
         self._proc_make.readyReadStandardError.connect(self._on_make_stderr)
         self._proc_make.finished.connect(self._on_make_done)
         self._proc_make.errorOccurred.connect(self._on_make_error)
-        self._proc_make.start("make", args)
+        self._proc_make.start(MAKE_CMD, args)
 
     def _on_make_error(self, error):
         if error == QProcess.ProcessError.FailedToStart:
             self.log_line.emit(
-                "[ERROR] Could not run 'make' — no C++ build toolchain found "
-                "in PATH. On Windows, install MSYS2/MinGW (or use WSL) — see "
-                "install/setup_windows.ps1 for instructions — then try again.")
+                f"[ERROR] Could not run '{MAKE_CMD}' — no C++ build toolchain "
+                "found in PATH. On Windows, install MSYS2/MinGW (or use WSL) — "
+                "see install/setup_windows.ps1 for instructions — then try "
+                "again.")
             self.finished.emit(False, "")
 
     def _on_make_stdout(self):
