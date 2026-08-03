@@ -75,36 +75,40 @@ powershell -ExecutionPolicy Bypass -File install\setup_windows.ps1
 downloaded `.ps1` scripts for this one invocation — it does not change any
 system-wide setting, and no admin rights are needed.
 
-This creates a Python virtual environment and a **BRAHMS** shortcut on your
-Desktop and Start Menu — the GUI itself is ready to use at this point. To
-also *run simulations* you additionally need a C++ compiler, which Windows
-does not ship by default:
+This one command sets up everything and is safe to re-run (it detects what's
+already installed and only fills in gaps):
 
-**CPU engine (engine_omp) — works on any machine:**
+1. Creates a Python virtual environment and installs `requirements.txt`.
+2. Builds the CPU engine (`engine_omp`) if a MinGW toolchain (g++ +
+   mingw32-make) is already on PATH — otherwise it's skipped and the GUI
+   still runs fine without it (see manual setup below to enable it later).
+3. Sets up the GPU engine (`engine_gpu`), auto-installing via `winget`
+   whatever is missing: the NVIDIA CUDA Toolkit, Visual Studio Build Tools
+   with the C++ workload (`cl.exe`, needed by `nvcc` on Windows),
+   `mingw32-make` (via MSYS2 — only the build-orchestrator package, not a
+   full MinGW/GCC toolchain), and HDF5 (built via the `vcpkg` bundled with
+   Build Tools, installed inside `engine_gpu\vcpkg_installed\` so it's
+   self-contained in the repo). Then compiles `engine_gpu\twm.exe`.
+4. Creates a **BRAHMS** shortcut on your Desktop and Start Menu.
 
-1. Install [MSYS2](https://www.msys2.org/) (default folder `C:\msys64`).
-2. Open **"MSYS2 MinGW x64"** from the Start Menu (not "MSYS2 MSYS" or
-   "UCRT64").
-3. Run `pacman -Syu`. If it asks you to close the terminal, reopen "MSYS2
-   MinGW x64" and run `pacman -Syu` again — repeat until it reports nothing
-   left to update. (MSYS2 does not support partial upgrades; skipping this
-   causes a dependency-conflict error on the next step.)
-4. Install the toolchain:
-   ```bash
-   pacman -S mingw-w64-x86_64-gcc mingw-w64-x86_64-make mingw-w64-x86_64-fftw mingw-w64-x86_64-hdf5 mingw-w64-x86_64-nlohmann-json
-   ```
-5. Add `C:\msys64\mingw64\bin` to your PATH (search "Environment Variables"
-   in the Start Menu → Edit the `Path` user variable → New).
-6. Open a **new** `cmd` window and confirm `g++ --version` and
-   `mingw32-make --version` both print a version.
+The GPU engine setup step can take 20–40 minutes on a machine with none of
+the above already installed (CUDA and VS Build Tools are multi-GB
+downloads); it's much faster on a re-run once everything is present.
 
-**GPU engine (engine_gpu) — optional, needs an NVIDIA GPU:** install the
-[CUDA Toolkit](https://developer.nvidia.com/cuda-downloads) and Visual
-Studio Build Tools (the "Desktop development with C++" workload, for
-`cl.exe`), then build from an "x64 Native Tools Command Prompt". This path
-is less exercised on Windows than the CPU engine above.
+Flags: `powershell ... setup_windows.ps1 -SkipGpu` (Python + CPU engine
+only) or `-SkipCpu` (skip the `engine_omp` build attempt).
 
-**Alternative:** skip the compiler setup entirely by installing
+To enable the CPU engine manually afterwards (e.g. if no MinGW toolchain was
+found), install [MSYS2](https://www.msys2.org/), then from an "MSYS2 MinGW
+x64" shell:
+```bash
+pacman -Syu   # repeat until it reports nothing left to update
+pacman -S mingw-w64-x86_64-gcc mingw-w64-x86_64-make mingw-w64-x86_64-fftw mingw-w64-x86_64-hdf5 mingw-w64-x86_64-nlohmann-json
+```
+then add `C:\msys64\mingw64\bin` to your PATH and re-run
+`setup_windows.ps1`.
+
+**Alternative:** skip Windows-native compilation entirely by installing
 [WSL](https://learn.microsoft.com/windows/wsl/install) (`wsl --install`,
 needs admin rights) and running `install/setup_linux.sh` inside it.
 

@@ -18,7 +18,7 @@
 __global__ void cuFFT1D_Scale(complex_t *A) {
     real_t s = static_cast<real_t>(NT);
     uint32_t i = threadIdx.x + blockDim.x * blockIdx.x;
-    if (i < SIZE) A[i] = A[i] / s;
+    if (i < TENSOR_SIZE) A[i] = A[i] / s;
 }
 
 __global__ void kernelGetSlice(complex_t *Dst, const complex_t *Src, int sl) {
@@ -159,14 +159,14 @@ public:
     EFields(real_t _Power, real_t _waist, Crystal *Cr)
         : Power(_Power), waist(_waist)
     {
-        Api.resize(SIZE);
-        Ap.resize(SIZE);  As.resize(SIZE);  Ai.resize(SIZE);
-        Awp.resize(SIZE); Aws.resize(SIZE); Awi.resize(SIZE);
-        AQp.resize(SIZE); AQs.resize(SIZE); AQi.resize(SIZE);
-        AuxQp.resize(SIZE); AuxQs.resize(SIZE); AuxQi.resize(SIZE);
-        Aux_Ap.resize(SIZE); Aux_As.resize(SIZE); Aux_Ai.resize(SIZE);
-        Aux_Awp.resize(SIZE); Aux_Aws.resize(SIZE); Aux_Awi.resize(SIZE);
-        Aux_Awp_prop.resize(SIZE); Aux_Aws_prop.resize(SIZE); Aux_Awi_prop.resize(SIZE);
+        Api.resize(TENSOR_SIZE);
+        Ap.resize(TENSOR_SIZE);  As.resize(TENSOR_SIZE);  Ai.resize(TENSOR_SIZE);
+        Awp.resize(TENSOR_SIZE); Aws.resize(TENSOR_SIZE); Awi.resize(TENSOR_SIZE);
+        AQp.resize(TENSOR_SIZE); AQs.resize(TENSOR_SIZE); AQi.resize(TENSOR_SIZE);
+        AuxQp.resize(TENSOR_SIZE); AuxQs.resize(TENSOR_SIZE); AuxQi.resize(TENSOR_SIZE);
+        Aux_Ap.resize(TENSOR_SIZE); Aux_As.resize(TENSOR_SIZE); Aux_Ai.resize(TENSOR_SIZE);
+        Aux_Awp.resize(TENSOR_SIZE); Aux_Aws.resize(TENSOR_SIZE); Aux_Awi.resize(TENSOR_SIZE);
+        Aux_Awp_prop.resize(TENSOR_SIZE); Aux_Aws_prop.resize(TENSOR_SIZE); Aux_Awi_prop.resize(TENSOR_SIZE);
         eiQz_p.resize(NX * NY); eiQz_s.resize(NX * NY); eiQz_i.resize(NX * NY);
         eiLz_p.resize(NT); eiLz_s.resize(NT); eiLz_i.resize(NT);
         t.resize(NT); F.resize(NT); w.resize(NT);

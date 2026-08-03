@@ -34,3 +34,4 @@
 #include <thrust/random.h>
 #include <thrust/functional.h>
 #include <thrust/execution_policy.h>
+#include <thrust/extrema.h>

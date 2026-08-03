@@ -10,7 +10,16 @@ engine_omp/twm_cpu_*
 engine_omp/bench_*
 engine_omp/*.o
 engine_gpu/twm
+engine_gpu/twm.exe
 engine_gpu/*.o
+engine_gpu/*.obj
+engine_gpu/*.lib
+engine_gpu/*.exp
+engine_gpu/*.pdb
+
+# ── Windows GPU-engine dependencies (installed locally by setup_windows.ps1)
+engine_gpu/vcpkg_installed/
+engine_gpu/vcpkg_project/
 
 # ── Runtime data (regenerated automatically) ───────────────────────────
 crystals/*.db
@@ -26,3 +35,4 @@ Thumbs.db
 
 # ── Local-only, not part of the GUI repo ────────────────────────────────
 BRAHMS_latex/
+engine_omp/twm_cpu.exe

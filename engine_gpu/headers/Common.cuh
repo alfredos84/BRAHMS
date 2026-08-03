@@ -1,7 +1,14 @@
 #ifndef _COMMON_CUH
 #define _COMMON_CUH
 
+#ifndef _WIN32
 #include <sys/time.h>
+#else
+// MSVC has no <sys/types.h> "uint" typedef (a GCC/glibc extension).
+// (_USE_MATH_DEFINES for M_PI is set via -D on the Makefile command line,
+// since it must be defined before <cmath>'s *first* include anywhere.)
+using uint = unsigned int;
+#endif
 #include <iomanip>
 
 // ── CUDA error-checking macros ────────────────────────────────────────────────
@@ -82,7 +89,7 @@ inline void print_grid() {
               << NT << ", " << NX << ", " << NY << ", " << NZ << ")\n"
               << "  Block (BLKT, BLKX, BLKY) = ("
               << BLKT << ", " << BLKX << ", " << BLKY << ")\n"
-              << "  Full tensor size NT*NX*NY = " << SIZE << "\n";
+              << "  Full tensor size NT*NX*NY = " << TENSOR_SIZE << "\n";
     print_line();
 }
 

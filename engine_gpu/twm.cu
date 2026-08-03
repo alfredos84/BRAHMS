@@ -223,7 +223,7 @@ int main(int argc, char *argv[]) {
     save_input_pump_slices_XY(&A, cfg, out_dir);
 
     {
-        cVech_t Aph(SIZE), Ash(SIZE), Aih(SIZE);
+        cVech_t Aph(TENSOR_SIZE), Ash(TENSOR_SIZE), Aih(TENSOR_SIZE);
         thrust::copy(A.Ap.begin(), A.Ap.end(), Aph.begin());
         thrust::copy(A.As.begin(), A.As.end(), Ash.begin());
         thrust::copy(A.Ai.begin(), A.Ai.end(), Aih.begin());
