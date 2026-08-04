@@ -20,7 +20,7 @@ import shutil
 import subprocess
 import sys
 
-from PyQt6.QtCore import QObject, QProcess, pyqtSignal
+from PyQt6.QtCore import QObject, QProcess, QProcessEnvironment, pyqtSignal
 
 # MSYS2's mingw-w64 "make" package installs mingw32-make.exe, not make.exe
 # (see install/setup_windows.ps1). Prefer it on Windows, but fall back to
@@ -29,6 +29,34 @@ if sys.platform == "win32" and shutil.which("mingw32-make"):
     MAKE_CMD = "mingw32-make"
 else:
     MAKE_CMD = "make"
+
+
+def _find_vcvars64() -> str | None:
+    """Locate VC\\Auxiliary\\Build\\vcvars64.bat from any VS/Build Tools
+    install (2022, 2026, ...) via vswhere. nvcc on Windows needs cl.exe on
+    PATH, which only happens once this script has been sourced."""
+    if sys.platform != "win32":
+        return None
+    vswhere = (r"C:\Program Files (x86)\Microsoft Visual Studio\Installer"
+               r"\vswhere.exe")
+    if not os.path.isfile(vswhere):
+        return None
+    try:
+        r = subprocess.run(
+            [vswhere, "-latest", "-products", "*",
+             "-requires", "Microsoft.VisualStudio.Component.VC.Tools.x86.x64",
+             "-property", "installationPath"],
+            capture_output=True, text=True, timeout=10)
+        install_path = r.stdout.strip().splitlines()[0] if r.stdout.strip() else ""
+    except Exception:
+        return None
+    if not install_path:
+        return None
+    candidate = os.path.join(install_path, "VC", "Auxiliary", "Build", "vcvars64.bat")
+    return candidate if os.path.isfile(candidate) else None
+
+
+VCVARS64 = _find_vcvars64()
 
 
 class EngineRunner(QObject):
@@ -105,12 +133,17 @@ class EngineRunner(QObject):
         try:
             r = subprocess.run(
                 ["nvidia-smi", "--query-gpu=compute_cap", "--format=csv,noheader"],
-                capture_output=True, text=True, timeout=5)
-            if r.returncode == 0:
+                capture_output=True, text=True, timeout=15)
+            if r.returncode == 0 and r.stdout.strip():
                 cap = r.stdout.strip().split("\n")[0].strip().replace(".", "")
                 return f"sm_{cap}"
-        except Exception:
-            pass
+            self.log_line.emit(
+                f"[WARN] nvidia-smi returned code {r.returncode} "
+                f"(stderr: {r.stderr.strip()!r}) - falling back to ARCH=sm_75")
+        except Exception as e:
+            self.log_line.emit(
+                f"[WARN] Could not run nvidia-smi ({type(e).__name__}: {e}) "
+                "- falling back to ARCH=sm_75")
         return "sm_75"
 
     def _start_make(self):
@@ -134,15 +167,27 @@ class EngineRunner(QObject):
         self._proc_make.readyReadStandardError.connect(self._on_make_stderr)
         self._proc_make.finished.connect(self._on_make_done)
         self._proc_make.errorOccurred.connect(self._on_make_error)
-        self._proc_make.start(MAKE_CMD, args)
+
+        if self._backend != "cpu" and VCVARS64:
+            # nvcc needs cl.exe (MSVC) on PATH; only vcvars64.bat puts it there.
+            # QProcess.start(program, args) quotes every arg itself, so handing
+            # it a pre-quoted "/c <command line>" string double-quotes it and
+            # cmd.exe fails to parse the result. setNativeArguments() bypasses
+            # that: it's passed to CreateProcess verbatim, unquoted.
+            quoted_args = " ".join(f'"{a}"' if " " in a else a for a in args)
+            cmd_line = f'/c call "{VCVARS64}" >NUL && {MAKE_CMD} {quoted_args}'
+            self._proc_make.setProgram("cmd.exe")
+            self._proc_make.setNativeArguments(cmd_line)
+            self._proc_make.start()
+        else:
+            self._proc_make.start(MAKE_CMD, args)
 
     def _on_make_error(self, error):
         if error == QProcess.ProcessError.FailedToStart:
             self.log_line.emit(
                 f"[ERROR] Could not run '{MAKE_CMD}' — no C++ build toolchain "
                 "found in PATH. On Windows, install MSYS2/MinGW (or use WSL) — "
-                "see install/setup_windows.ps1 for instructions — then try "
-                "again.")
+                "see install/setup_windows.ps1 for instructions — then try again.")
             self.finished.emit(False, "")
 
     def _on_make_stdout(self):
@@ -173,6 +218,15 @@ class EngineRunner(QObject):
         self.log_line.emit(
             f"[RUN] {os.path.basename(binary)} {os.path.basename(self._config_path)} → {self._out_dir}/")
         self._proc_twm = QProcess(self)
+        if self._backend != "cpu" and sys.platform == "win32":
+            # twm.exe dynamically links hdf5.dll / hdf5_cpp.dll (vcpkg build,
+            # installed in-repo by install/setup_windows.ps1); their
+            # directory isn't on the default PATH.
+            env = QProcessEnvironment.systemEnvironment()
+            hdf5_bin = os.path.join(self._engine_dir, "vcpkg_installed", "x64-windows", "bin")
+            if os.path.isdir(hdf5_bin):
+                env.insert("PATH", hdf5_bin + os.pathsep + env.value("PATH"))
+            self._proc_twm.setProcessEnvironment(env)
         self._proc_twm.readyReadStandardOutput.connect(self._on_twm_stdout)
         self._proc_twm.readyReadStandardError.connect(self._on_twm_stderr)
         self._proc_twm.finished.connect(self._on_twm_done)

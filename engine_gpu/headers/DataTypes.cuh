@@ -37,15 +37,17 @@ using json = nlohmann::json;
 #define BLKT 128
 #endif
 
-static const uint32_t SIZE = NT * NX * NY;
+// Named TENSOR_SIZE (not SIZE) because wingdi.h -- pulled in transitively
+// by <windows.h> on MSVC -- #defines SIZE as a GDI record-type constant.
+static const uint32_t TENSOR_SIZE = NT * NX * NY;
 
 // ── Memory sizes ──────────────────────────────────────────────────────────────
 static const size_t nBytes1Dr = sizeof(real_t)    * NT;
 static const size_t nBytes1Dc = sizeof(complex_t) * NT;
 static const size_t nBytes2Dr = sizeof(real_t)    * NX * NY;
 static const size_t nBytes2Dc = sizeof(complex_t) * NX * NY;
-static const size_t nBytes3Dr = sizeof(real_t)    * SIZE;
-static const size_t nBytes3Dc = sizeof(complex_t) * SIZE;
+static const size_t nBytes3Dr = sizeof(real_t)    * TENSOR_SIZE;
+static const size_t nBytes3Dc = sizeof(complex_t) * TENSOR_SIZE;
 
 // ── Physical constants ────────────────────────────────────────────────────────
 static constexpr real_t PI   = 3.14159265358979323846f;

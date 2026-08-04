@@ -298,10 +298,10 @@ public:
         : Cr(cr), A(a), config(cfg), process(cr->process),
           PM(pm), Tf_therm(tf)
     {
-        k1p.resize(SIZE); k2p.resize(SIZE); k3p.resize(SIZE); k4p.resize(SIZE);
-        k1s.resize(SIZE); k2s.resize(SIZE); k3s.resize(SIZE); k4s.resize(SIZE);
-        k1i.resize(SIZE); k2i.resize(SIZE); k3i.resize(SIZE); k4i.resize(SIZE);
-        auxp.resize(SIZE); auxs.resize(SIZE); auxi.resize(SIZE);
+        k1p.resize(TENSOR_SIZE); k2p.resize(TENSOR_SIZE); k3p.resize(TENSOR_SIZE); k4p.resize(TENSOR_SIZE);
+        k1s.resize(TENSOR_SIZE); k2s.resize(TENSOR_SIZE); k3s.resize(TENSOR_SIZE); k4s.resize(TENSOR_SIZE);
+        k1i.resize(TENSOR_SIZE); k2i.resize(TENSOR_SIZE); k3i.resize(TENSOR_SIZE); k4i.resize(TENSOR_SIZE);
+        auxp.resize(TENSOR_SIZE); auxs.resize(TENSOR_SIZE); auxi.resize(TENSOR_SIZE);
         Ip_buf.resize((size_t)NX * NY, 0.0f);
         Is_buf.resize((size_t)NX * NY, 0.0f);
         Ii_buf.resize((size_t)NX * NY, 0.0f);
