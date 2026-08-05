@@ -4,7 +4,7 @@ import numpy as np
 from PyQt6.QtWidgets import (
     QWidget, QHBoxLayout, QVBoxLayout, QSplitter, QGroupBox,
     QLabel, QPushButton, QFileDialog,
-    QFrame, QLineEdit, QSlider, QTabWidget, QSpinBox
+    QFrame, QLineEdit, QSlider, QTabWidget, QSpinBox, QCheckBox
 )
 from PyQt6.QtCore import Qt
 
@@ -107,6 +107,12 @@ class ResultsTab(QWidget):
         self.btn_export = QPushButton("Export Figures")
         lv.addWidget(self.btn_load)
         lv.addWidget(self.btn_export)
+        self.chk_unwrap_phase = QCheckBox("Unwrap phase (bottom panels)")
+        self.chk_unwrap_phase.setToolTip(
+            "Bottom-row phase line-outs: wrapped (-π, π] when unchecked, "
+            "unwrapped (continuous) when checked. Re-plots instantly from "
+            "the already-loaded data — no need to re-run the simulation.")
+        lv.addWidget(self.chk_unwrap_phase)
         lv.addStretch()
 
         splitter.addWidget(left)
@@ -126,6 +132,7 @@ class ResultsTab(QWidget):
         self.btn_export.clicked.connect(self._export)
         self.sl_z.valueChanged.connect(self._on_slice_changed)
         self.sl_x.valueChanged.connect(self._on_slice_changed)
+        self.chk_unwrap_phase.toggled.connect(self._on_unwrap_toggled)
 
         self._fields_data:  dict[str, np.ndarray] = {}
         self._fields_input: dict[str, np.ndarray] = {}
@@ -258,6 +265,10 @@ class ResultsTab(QWidget):
         if self._vol_data:
             self._plot_intensities()
             self._update_efficiency()
+
+    def _on_unwrap_toggled(self, _checked):
+        if self._fields_data:
+            self._plot_phases()
 
     def _load_and_plot(self):
         path = self.le_file.text().strip()
@@ -443,29 +454,35 @@ class ResultsTab(QWidget):
             ph  = np.angle(A)
             c   = _FIELD_COLORS[name]
 
-            # ── top: 2-D phase map ────────────────────────────────────
+            # ── top: 2-D phase map (same colormap/formatting as intensities) ─
             ax_top.set_title(f"{name}   phase(x,y, z=L)", fontsize=12)
             ax_top.set_xlabel("x  (μm)", fontsize=12)
             ax_top.set_ylabel("y  (μm)", fontsize=12)
-            im = ax_top.imshow(ph, cmap="twilight", origin="lower",
+            im = ax_top.imshow(ph, cmap="RdBu_r", origin="lower",
                                aspect="auto", extent=ext, vmin=-np.pi, vmax=np.pi,
                                interpolation="bilinear")
             cb = self.canvas_ph.fig.colorbar(im, ax=ax_top, pad=0.02)
             cb.set_label("rad", fontsize=12, color="white")
             cb.ax.tick_params(colors="white", labelsize=10)
 
-            # ── bottom: 1-D phase profile at x = 0 ───────────────────
+            # ── bottom: 1-D phase profile at x = 0 (wrap/unwrap toggle) ──
             ix0      = NX // 2
-            ph_prof  = ph[:, ix0]
-            ax_bot.set_title(f"{name}   phase(x=0, y, z=L)", fontsize=12)
+            unwrap   = self.chk_unwrap_phase.isChecked()
+            ph_prof  = np.unwrap(ph[:, ix0]) if unwrap else ph[:, ix0]
+            title_suffix = "  (unwrapped)" if unwrap else ""
+            ax_bot.set_title(f"{name}   phase(x=0, y, z=L){title_suffix}", fontsize=12)
             ax_bot.set_xlabel("y  (μm)", fontsize=12)
             ax_bot.set_ylabel("phase  (rad)", fontsize=12)
             ax_bot.plot(y, ph_prof, color=c, lw=1.5)
             ax_bot.set_xlim(ext[2], ext[3])
             ax_bot.axhline(0, color="#555", lw=0.7, ls="--")
-            ax_bot.set_ylim(-np.pi - 0.1, np.pi + 0.1)
-            ax_bot.set_yticks([-np.pi, -np.pi/2, 0, np.pi/2, np.pi])
-            ax_bot.set_yticklabels(["-π", "-π/2", "0", "π/2", "π"], fontsize=11)
+            if unwrap:
+                # Unwrapped phase can range well beyond ±π — let it auto-scale.
+                ax_bot.margins(y=0.08)
+            else:
+                ax_bot.set_ylim(-np.pi - 0.1, np.pi + 0.1)
+                ax_bot.set_yticks([-np.pi, -np.pi/2, 0, np.pi/2, np.pi])
+                ax_bot.set_yticklabels(["-π", "-π/2", "0", "π/2", "π"], fontsize=11)
 
         self.canvas_ph.fig.tight_layout()
         self.canvas_ph.refresh()
