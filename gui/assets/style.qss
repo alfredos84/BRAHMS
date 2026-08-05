@@ -219,6 +219,17 @@ QRadioButton::indicator:checked, QCheckBox::indicator:checked {
 QRadioButton::indicator:hover, QCheckBox::indicator:hover {
     border-color: #00bcd4;
 }
+QRadioButton:disabled, QCheckBox:disabled {
+    color: #6a6a6a;
+}
+QRadioButton::indicator:disabled, QCheckBox::indicator:disabled {
+    background-color: #2a2a2a;
+    border-color: #3a3a3a;
+}
+QRadioButton::indicator:checked:disabled, QCheckBox::indicator:checked:disabled {
+    background-color: #2f6b74;
+    border-color: #2f6b74;
+}
 
 /* ---- List & Tree widgets ---- */
 QListWidget, QTreeWidget, QTableWidget {

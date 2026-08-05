@@ -140,16 +140,21 @@ def build_config(params: dict, db: CrystalDB | None = None) -> dict:
     else:
         regime  = params["pump"]["regime"]   # "CW" | "Pulsed"
         profile = params["pump"]["profile"]  # "Focused Gaussian" | "Plane wave"
-        _pulsed  = regime == "Pulsed"
-        _focused = "Focused" in profile
-        if _focused and not _pulsed:
+        _pulsed_  = regime == "Pulsed"
+        _focused_ = "Focused" in profile
+        if _focused_ and not _pulsed_:
             pump_mode = "focused-cw"
-        elif _focused and _pulsed:
+        elif _focused_ and _pulsed_:
             pump_mode = "focused-pulsed"
-        elif not _focused and not _pulsed:
+        elif not _focused_ and not _pulsed_:
             pump_mode = "waveplane-cw"
         else:
             pump_mode = "waveplane-pulsed"
+
+    # Derived unconditionally from the final mode string, regardless of which
+    # branch above produced it, so both call sites (regime/profile and the
+    # direct "mode" key) agree on downstream behaviour.
+    _pulsed = "pulsed" in pump_mode
 
     # ── Time window ────────────────────────────────────────────────────────────
     # Pulsed: use 10× FWHM by default; caller may override via "t_window_ps".
