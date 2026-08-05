@@ -9,7 +9,7 @@ from PyQt6.QtWidgets import (
     QWidget, QHBoxLayout, QVBoxLayout, QSplitter,
     QGroupBox, QLabel, QComboBox, QDoubleSpinBox, QSpinBox,
     QCheckBox, QPushButton, QScrollArea, QTextEdit,
-    QFrame, QGridLayout,
+    QFrame, QGridLayout, QSizePolicy,
 )
 from PyQt6.QtCore import Qt, pyqtSignal, QLocale
 
@@ -96,6 +96,13 @@ class FullSimulationTab(QWidget):
 
         for sb in self.findChildren(QDoubleSpinBox):
             sb.setLocale(_LOCALE_C)
+
+        # Radio buttons / checkboxes are stretched to the full column width by
+        # the layout, but Qt's stylesheet-based hit-testing only registers
+        # clicks within their natural (label-sized) rect. Pin them to their
+        # natural width so the whole visible control is clickable.
+        for w in self.findChildren(QCheckBox):
+            w.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Fixed)
 
         # ── Connections ────────────────────────────────────────────────
         self.btn_run.clicked.connect(self._on_run_gpu)

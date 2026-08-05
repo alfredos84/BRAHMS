@@ -156,13 +156,22 @@ class SimulationTab(QWidget):
         self.btn_run.clicked.connect(self._on_run_gpu)
         self.btn_mpi.clicked.connect(self._on_run_mpi)
         self.btn_stop.clicked.connect(self.stop_requested)
-        self.cb_regime.currentTextChanged.connect(self._update_visibility)
-        self.cb_profile.currentTextChanged.connect(self._update_visibility)
+        self.cb_field_mode.currentIndexChanged.connect(self._update_visibility)
         self.cb_process.currentTextChanged.connect(self._update_visibility)
         self.chk_degen.toggled.connect(self._on_degenerate)
         self.sb_waist.valueChanged.connect(self._auto_lxly)
         self._update_visibility()
         self._auto_lxly()
+
+        # Radio buttons / checkboxes are stretched to the full column width by
+        # the layout, but Qt's stylesheet-based hit-testing only registers
+        # clicks within their natural (label-sized) rect — leaving a "dead"
+        # unclickable strip that looks live. Pin them to their natural width
+        # so the whole visible control is clickable.
+        for w in self.findChildren(QRadioButton):
+            w.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Fixed)
+        for w in self.findChildren(QCheckBox):
+            w.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Fixed)
 
     # ── Group builders ─────────────────────────────────────────────────
     def _build_process_group(self):
@@ -245,39 +254,40 @@ class SimulationTab(QWidget):
         self.sb_lp.setRange(0.1, 20); self.sb_lp.setDecimals(4)
         self.sb_lp.setValue(1.064)
         g.addWidget(self.sb_lp, 0, 1)
-        g.addWidget(QLabel("Regime"), 1, 0)
-        self.cb_regime = QComboBox()
-        self.cb_regime.addItems(["CW", "Pulsed"])
-        g.addWidget(self.cb_regime, 1, 1)
-        g.addWidget(QLabel("Profile"), 2, 0)
-        self.cb_profile = QComboBox()
-        self.cb_profile.addItems(["Focused Gaussian", "Plane wave"])
-        g.addWidget(self.cb_profile, 2, 1)
-        g.addWidget(QLabel("Power (W)"), 3, 0)
+        g.addWidget(QLabel("Field mode"), 1, 0)
+        self.cb_field_mode = QComboBox()
+        # (label, engine mode string) — engine mode strings match EFields.cuh::set_pump_field
+        self.cb_field_mode.addItem("Wave plane, CW",             "waveplane-cw")
+        self.cb_field_mode.addItem("Wave plane, Pulsed",          "waveplane-pulsed")
+        self.cb_field_mode.addItem("Focused Gaussian, CW",        "focused-cw")
+        self.cb_field_mode.addItem("Focused Gaussian, Pulsed",    "focused-pulsed")
+        self.cb_field_mode.setCurrentIndex(2)  # default: Focused Gaussian, CW
+        g.addWidget(self.cb_field_mode, 1, 1)
+        g.addWidget(QLabel("Power (W)"), 2, 0)
         self.sb_power = QDoubleSpinBox()
         self.sb_power.setLocale(_LOCALE_C)
         self.sb_power.setRange(1e-9, 1e6); self.sb_power.setDecimals(4)
         self.sb_power.setValue(10.0)
-        g.addWidget(self.sb_power, 3, 1)
-        g.addWidget(QLabel("Waist (μm)"), 4, 0)
+        g.addWidget(self.sb_power, 2, 1)
+        g.addWidget(QLabel("Waist (μm)"), 3, 0)
         self.sb_waist = QDoubleSpinBox()
         self.sb_waist.setLocale(_LOCALE_C)
         self.sb_waist.setRange(0.1, 10000); self.sb_waist.setValue(30)
-        g.addWidget(self.sb_waist, 4, 1)
+        g.addWidget(self.sb_waist, 3, 1)
         self.lbl_fwhm = QLabel("FWHM (ps)")
         self.sb_fwhm  = QDoubleSpinBox()
         self.sb_fwhm.setLocale(_LOCALE_C)
         self.sb_fwhm.setRange(0.001, 1e5); self.sb_fwhm.setValue(0.2)
-        g.addWidget(self.lbl_fwhm, 5, 0)
-        g.addWidget(self.sb_fwhm, 5, 1)
+        g.addWidget(self.lbl_fwhm, 4, 0)
+        g.addWidget(self.sb_fwhm, 4, 1)
         self.lbl_focus = QLabel("Focal position")
         self.cb_focus  = QComboBox()
         self.cb_focus.addItems(["Crystal centre (0.5·L)", "Crystal start", "Custom"])
-        g.addWidget(self.lbl_focus, 6, 0)
-        g.addWidget(self.cb_focus, 6, 1)
+        g.addWidget(self.lbl_focus, 5, 0)
+        g.addWidget(self.cb_focus, 5, 1)
         self.chk_undepleted = QCheckBox("Undepleted pump")
         self.chk_undepleted.setToolTip("Fix pump amplitude (dAp/dz = 0) — undepleted pump approximation")
-        g.addWidget(self.chk_undepleted, 7, 0, 1, 2)
+        g.addWidget(self.chk_undepleted, 6, 0, 1, 2)
         return gb
 
     def _build_signal_group(self):
@@ -415,8 +425,9 @@ class SimulationTab(QWidget):
 
     # ── Visibility logic ───────────────────────────────────────────────
     def _update_visibility(self):
-        pulsed  = self.cb_regime.currentText() == "Pulsed"
-        focused = self.cb_profile.currentText() == "Focused Gaussian"
+        mode    = self.cb_field_mode.currentData()
+        pulsed  = "pulsed" in mode
+        focused = "focused" in mode
         proc    = self.cb_process.currentText()
 
         self.lbl_fwhm.setVisible(pulsed)
@@ -486,8 +497,7 @@ class SimulationTab(QWidget):
             "undepleted_pump": self.chk_undepleted.isChecked(),
             "pump": {
                 "lambda_um": self.sb_lp.value(),
-                "regime":    self.cb_regime.currentText(),
-                "profile":   self.cb_profile.currentText(),
+                "mode":      self.cb_field_mode.currentData(),
                 "power_W":   self.sb_power.value(),
                 "waist_um":  self.sb_waist.value(),
                 "fwhm_ps":   self.sb_fwhm.value(),

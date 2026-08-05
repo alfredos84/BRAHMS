@@ -50,18 +50,23 @@ class MainWindow(QMainWindow):
         self.sweep_tab        = SweepTab(sim_tab_ref=self.sim_tab,
                                           crystal_tab_ref=self.crystal_tab)
 
+        # Single simulation: inner tab widget with "Set Parameters" and "Results"
+        self.single_sim_tabs = QTabWidget()
+        self.single_sim_tabs.setDocumentMode(True)
+        self.single_sim_tabs.addTab(self.sim_tab,     "  Set Parameters  ")
+        self.single_sim_tabs.addTab(self.results_tab, "  Results  ")
+
         # (3+1)D Simulations: inner tab widget with "Set Parameters" and "Results"
         self.full_3d_tabs = QTabWidget()
         self.full_3d_tabs.setDocumentMode(True)
         self.full_3d_tabs.addTab(self.full_sim_tab,     "  Set Parameters  ")
         self.full_3d_tabs.addTab(self.full_results_tab, "  Results  ")
 
-        self.tabs.addTab(self.crystal_tab,   "  Nonlinear Crystals  ")
-        self.tabs.addTab(self.pm_tab,        "  Phase Matching  ")
-        self.tabs.addTab(self.sim_tab,       "  Simulation Parameters  ")
-        self.tabs.addTab(self.results_tab,   "  Results  ")
-        self.tabs.addTab(self.sweep_tab,     "  Parameter Sweep  ")
-        self.tabs.addTab(self.full_3d_tabs,  "  (3+1)D Simulations  ")
+        self.tabs.addTab(self.crystal_tab,     "  Nonlinear Crystals  ")
+        self.tabs.addTab(self.pm_tab,          "  Phase Matching  ")
+        self.tabs.addTab(self.single_sim_tabs, "  Single simulation  ")
+        self.tabs.addTab(self.sweep_tab,       "  Parameter Sweep  ")
+        self.tabs.addTab(self.full_3d_tabs,    "  (3+1)D Simulations  ")
 
         self.setCentralWidget(self.tabs)
 
@@ -176,11 +181,13 @@ class MainWindow(QMainWindow):
         self._runner.run(cfg, grid, out_dir, backend=backend)
 
     def _run_gpu(self):
-        self.tabs.setCurrentWidget(self.sim_tab)
+        self.tabs.setCurrentWidget(self.single_sim_tabs)
+        self.single_sim_tabs.setCurrentWidget(self.sim_tab)
         self.sim_tab._on_run_gpu()
 
     def _run_mpi(self):
-        self.tabs.setCurrentWidget(self.sim_tab)
+        self.tabs.setCurrentWidget(self.single_sim_tabs)
+        self.single_sim_tabs.setCurrentWidget(self.sim_tab)
         self.sim_tab._on_run_mpi()
 
     def _on_simulation_finished(self, success: bool, out_dir: str):
@@ -203,14 +210,16 @@ class MainWindow(QMainWindow):
             if success:
                 self.lbl_status.setText("Done.")
                 self.results_tab.load_output_dir(out_dir)
-                self.tabs.setCurrentWidget(self.results_tab)
+                self.tabs.setCurrentWidget(self.single_sim_tabs)
+                self.single_sim_tabs.setCurrentWidget(self.results_tab)
             else:
                 self.lbl_status.setText("Failed — see log.")
 
     def _on_pm_wavelengths_found(self, lp: float, ls: float, li: float,
                                   T: float, Lambda: float):
         self.sim_tab.load_pm_wavelengths(lp, ls, li, T, Lambda)
-        self.tabs.setCurrentWidget(self.sim_tab)
+        self.tabs.setCurrentWidget(self.single_sim_tabs)
+        self.single_sim_tabs.setCurrentWidget(self.sim_tab)
         self.lbl_status.setText(
             f"PM loaded: λ_p={lp:.4f} μm  λ_s={ls:.4f} μm  λ_i={li:.4f} μm  T={T:.1f} °C")
 

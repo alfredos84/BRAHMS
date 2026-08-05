@@ -135,18 +135,21 @@ def build_config(params: dict, db: CrystalDB | None = None) -> dict:
         LY_mm = LX_mm
 
     # ── Pump mode string ───────────────────────────────────────────────────────
-    regime  = params["pump"]["regime"]   # "CW" | "Pulsed"
-    profile = params["pump"]["profile"]  # "Focused Gaussian" | "Plane wave"
-    _pulsed  = regime == "Pulsed"
-    _focused = "Focused" in profile
-    if _focused and not _pulsed:
-        pump_mode = "focused-cw"
-    elif _focused and _pulsed:
-        pump_mode = "focused-pulsed"
-    elif not _focused and not _pulsed:
-        pump_mode = "waveplane-cw"
+    if "mode" in params["pump"]:
+        pump_mode = params["pump"]["mode"]   # e.g. "focused-cw" — set directly by the Field mode combo
     else:
-        pump_mode = "waveplane-pulsed"
+        regime  = params["pump"]["regime"]   # "CW" | "Pulsed"
+        profile = params["pump"]["profile"]  # "Focused Gaussian" | "Plane wave"
+        _pulsed  = regime == "Pulsed"
+        _focused = "Focused" in profile
+        if _focused and not _pulsed:
+            pump_mode = "focused-cw"
+        elif _focused and _pulsed:
+            pump_mode = "focused-pulsed"
+        elif not _focused and not _pulsed:
+            pump_mode = "waveplane-cw"
+        else:
+            pump_mode = "waveplane-pulsed"
 
     # ── Time window ────────────────────────────────────────────────────────────
     # Pulsed: use 10× FWHM by default; caller may override via "t_window_ps".

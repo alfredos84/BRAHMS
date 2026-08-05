@@ -346,6 +346,15 @@ class SweepTab(QWidget):
         splitter.setStretchFactor(0, 0)
         splitter.setStretchFactor(1, 1)
 
+        # Radio buttons / checkboxes are stretched to the full column width by
+        # the layout, but Qt's stylesheet-based hit-testing only registers
+        # clicks within their natural (label-sized) rect. Pin them to their
+        # natural width so the whole visible control is clickable.
+        for w in self.findChildren(QRadioButton):
+            w.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Fixed)
+        for w in self.findChildren(QCheckBox):
+            w.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Fixed)
+
     # ── Left panel ─────────────────────────────────────────────────────
     def _build_left(self):
         scroll = QScrollArea()
@@ -433,7 +442,7 @@ class SweepTab(QWidget):
         self.lbl_fixed = QLabel("—")
         self.lbl_fixed.setObjectName("unitLabel")
         self.lbl_fixed.setWordWrap(True)
-        self.btn_refresh_fixed = QPushButton("Refresh from Simulation")
+        self.btn_refresh_fixed = QPushButton("Load from Single Simulation")
         self.btn_refresh_fixed.clicked.connect(self._refresh_fixed)
         gf.addWidget(self.lbl_fixed)
         gf.addWidget(self.btn_refresh_fixed)
@@ -581,7 +590,7 @@ class SweepTab(QWidget):
 
         if self._sim_tab is None:
             self.lbl_fixed.setText("Simulation tab not connected.")
-            self.btn_refresh_fixed.setText("Refresh from Simulation")
+            self.btn_refresh_fixed.setText("Load from Single Simulation")
             self.btn_refresh_fixed.setEnabled(True)
             return
 
@@ -618,8 +627,8 @@ class SweepTab(QWidget):
         except Exception as e:
             self.lbl_fixed.setText(f"Error loading params: {str(e)}")
         finally:
-            self.btn_refresh_fixed.setText("✓ Refresh from Simulation")
-            QTimer.singleShot(1500, lambda: self.btn_refresh_fixed.setText("Refresh from Simulation"))
+            self.btn_refresh_fixed.setText("✓ Load from Single Simulation")
+            QTimer.singleShot(1500, lambda: self.btn_refresh_fixed.setText("Load from Single Simulation"))
             self.btn_refresh_fixed.setEnabled(True)
 
     def _build_sweep_values(self):
