@@ -80,17 +80,22 @@ class EngineRunner(QObject):
 
         self._proc_make: QProcess | None = None
         self._proc_twm:  QProcess | None = None
+        self._omp_threads: int | None = None   # None → OpenMP runtime default (all logical cores)
 
     # ── Public API ─────────────────────────────────────────────────────────────
 
-    def run(self, config: dict, grid: dict, out_dir: str, backend: str = "cuda"):
+    def run(self, config: dict, grid: dict, out_dir: str, backend: str = "cuda",
+            omp_threads: int | None = None):
         """
         Start a simulation run.
-        config  : dict from config_builder.build_config()
-        grid    : {"NX": int, "NY": int, "NZ": int, "NT": int}
-        out_dir : absolute path where HDF5 outputs will be written
+        config      : dict from config_builder.build_config()
+        grid        : {"NX": int, "NY": int, "NZ": int, "NT": int, ...}
+        out_dir     : absolute path where HDF5 outputs will be written
+        omp_threads : CPU backend only — sets OMP_NUM_THREADS for the run;
+                      None leaves the OpenMP runtime default (all logical cores).
         """
         self._backend = backend
+        self._omp_threads = omp_threads
         os.makedirs(out_dir, exist_ok=True)
         self._config_path = os.path.join(out_dir, "config.json")
         self._out_dir = out_dir
@@ -159,7 +164,10 @@ class EngineRunner(QObject):
             args = ["-B", "-C", eng,
                     f"NX={g['NX']}", f"NY={g['NY']}",
                     f"NZ={g['NZ']}", f"NT={g['NT']}",
-                    f"ARCH={arch}"]
+                    f"ARCH={arch}",
+                    f"BLKX={g.get('BLKX', 16)}",
+                    f"BLKY={g.get('BLKY', 16)}",
+                    f"BLKT={g.get('BLKT', 16)}"]
         self.log_line.emit(f"[BUILD] {MAKE_CMD} {' '.join(args)}")
 
         self._proc_make = QProcess(self)
@@ -227,6 +235,14 @@ class EngineRunner(QObject):
             if os.path.isdir(hdf5_bin):
                 env.insert("PATH", hdf5_bin + os.pathsep + env.value("PATH"))
             self._proc_twm.setProcessEnvironment(env)
+        elif self._backend == "cpu" and self._omp_threads:
+            # OMP_NUM_THREADS overrides the OpenMP runtime default of "all
+            # logical cores"; the CPU engine reads it implicitly via
+            # omp_get_max_threads() — no code change needed on that side.
+            env = QProcessEnvironment.systemEnvironment()
+            env.insert("OMP_NUM_THREADS", str(self._omp_threads))
+            self._proc_twm.setProcessEnvironment(env)
+            self.log_line.emit(f"[INFO] OMP_NUM_THREADS={self._omp_threads}")
         self._proc_twm.readyReadStandardOutput.connect(self._on_twm_stdout)
         self._proc_twm.readyReadStandardError.connect(self._on_twm_stderr)
         self._proc_twm.finished.connect(self._on_twm_done)

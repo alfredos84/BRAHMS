@@ -75,19 +75,35 @@ int main(int argc, char *argv[]) {
     A.set_pump_field(pump_power, pump_fwhm, pump_waist, pump_fp, pump_mode);
 
     // ── Initialise signal / idler ─────────────────────────────────────────────
-    bool signal_noise = fld["signal"].value("noise", true);
-    if (signal_noise) {
-        A.noise_generator(A.As);
-        A.noise_generator(A.Ai);
-    } else {
-        // DFG / SFG: injected signal — initialise with a CW Gaussian
-        // (power from JSON; waist same as pump for now)
-        real_t sig_pwr = fld["signal"].value("power_W", 0.0f);
-        // TODO: add dedicated signal-field kernel if needed
-        A.noise_generator(A.As);  // placeholder until signal init kernel added
-        A.noise_generator(A.Ai);
-    }
-    if (Cr.degenerate) A.Ai = A.As;  // SHG / degenerate OPG
+    // Each of signal/idler is independently seeded from vacuum noise or an
+    // injected field (same four wave-plane/focused × cw/pulsed modes as the
+    // pump), mirroring set_pump_field but at the signal/idler wavelength.
+    // Re-seeded before every optical pass (including each thermal outer
+    // iteration below), so this is a lambda rather than a one-off block.
+    auto seed_signal_idler = [&]() {
+        if (fld["signal"].value("noise", true)) {
+            A.noise_generator(A.As);
+        } else {
+            real_t sig_pwr  = fld["signal"].value("power_W", 0.0f);
+            real_t sig_wst  = fld["signal"].value("waist_um", pump_waist);
+            real_t sig_fwhm = fld["signal"].value("fwhm_ps", pump_fwhm);
+            real_t sig_fp   = fld["signal"].value("focal_point_um", pump_fp);
+            std::string sig_mode = fld["signal"].value("mode", "waveplane-cw");
+            A.set_signal_field(sig_pwr, sig_fwhm, sig_wst, sig_fp, sig_mode);
+        }
+        if (fld["idler"].value("noise", true)) {
+            A.noise_generator(A.Ai);
+        } else {
+            real_t idl_pwr  = fld["idler"].value("power_W", 0.0f);
+            real_t idl_wst  = fld["idler"].value("waist_um", pump_waist);
+            real_t idl_fwhm = fld["idler"].value("fwhm_ps", pump_fwhm);
+            real_t idl_fp   = fld["idler"].value("focal_point_um", pump_fp);
+            std::string idl_mode = fld["idler"].value("mode", "waveplane-cw");
+            A.set_idler_field(idl_pwr, idl_fwhm, idl_wst, idl_fp, idl_mode);
+        }
+        if (Cr.degenerate) A.Ai = A.As;  // SHG / degenerate OPG
+    };
+    seed_signal_idler();
 
     // ── Thermal (optional) ────────────────────────────────────────────────────
     bool   thermal_on  = cfg.contains("thermal") && cfg["thermal"].value("enabled", false);
@@ -148,9 +164,7 @@ int main(int argc, char *argv[]) {
 
         // Seed pass: propagate with T = T_oven (uniform), Q = 0
         std::cout << "  [Thermal] Seed pass  (T = " << T_oven << " °C uniform, Q = 0)...\n";
-        A.noise_generator(A.As);
-        A.noise_generator(A.Ai);
-        if (Cr.degenerate) A.Ai = A.As;
+        seed_signal_idler();
         Tf.zero_Q();
         S.run();   // Q[x,y,z] populated from seed optical intensities
 
@@ -192,9 +206,7 @@ int main(int argc, char *argv[]) {
 
             // Step 5: Re-propagate optical fields with new Δk(x,y,z)
             std::cout << "    Re-propagating optical fields...\n";
-            A.noise_generator(A.As);
-            A.noise_generator(A.Ai);
-            if (Cr.degenerate) A.Ai = A.As;
+            seed_signal_idler();
             Tf.zero_Q();
             S.run();   // Q re-accumulated with thermally corrected DK
 

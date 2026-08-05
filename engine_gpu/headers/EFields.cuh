@@ -204,56 +204,82 @@ public:
 
     // ── Methods ───────────────────────────────────────────────────────────────
     void set_pump_field(real_t Power, real_t FWHM, real_t waist, real_t focalpoint, const std::string& mode);
+    void set_signal_field(real_t Power, real_t FWHM, real_t waist, real_t focalpoint, const std::string& mode);
+    void set_idler_field(real_t Power, real_t FWHM, real_t waist, real_t focalpoint, const std::string& mode);
     void noise_generator(cVecd_t& Vec);
     void set_time_freq_vectors(real_t t_window);
     void fftShift2D(cVecd_t& propagator);
     void set_plan_diffraction();
     void set_plan_dispersion();
     void destroy_cufft_plans();
+
+private:
+    // Shared implementation for set_{pump,signal,idler}_field: initialises
+    // `target` (Api for the pump, As/Ai directly for signal/idler — these
+    // are not reset per multipass the way the pump is, so no separate
+    // "initial" buffer is needed for them) with a wave-plane or focused
+    // Gaussian beam, CW or pulsed, at the given wavelength/index.
+    void init_field(cVecd_t& target, real_t n_val, real_t lambda_val,
+                     real_t Pwr, real_t FWHM, real_t wst, real_t fp,
+                     const std::string& mode, const char* label);
 };
 
 // ── Method implementations ─────────────────────────────────────────────────────
 
-void EFields::set_pump_field(real_t Pwr, real_t FWHM, real_t wst, real_t fp, const std::string& mode) {
+void EFields::init_field(cVecd_t& target, real_t n_val, real_t lambda_val,
+                          real_t Pwr, real_t FWHM, real_t wst, real_t fp,
+                          const std::string& mode, const char* label) {
     real_t tau  = FWHM * sqrtf(2.0f) / (2.0f * sqrtf(2.0f * logf(2.0f)));
     real_t w02  = wst * wst;
-    real_t zR   = PI * np * w02 / lp;
+    real_t zR   = PI * n_val * w02 / lambda_val;
     real_t eta  = fp / zR;
-    real_t Ap0  = sqrtf(4.0f * Pwr / (EPS0 * C * PI * np * w02));
+    real_t A0   = sqrtf(4.0f * Pwr / (EPS0 * C * PI * n_val * w02));
     complex_t Im; Im.x = 0; Im.y = 1;
     complex_t MX = (1.0f - Im * eta);  // -i·η → converging beam, waist at z=fp
 
-    complex_t *ptr = thrust::raw_pointer_cast(this->Api.data());
+    complex_t *ptr = thrust::raw_pointer_cast(target.data());
     real_t *t_ptr  = thrust::raw_pointer_cast(this->t.data());
     dim3 block(BLKX, BLKY), grid((NX+BLKX-1)/BLKX, (NY+BLKY-1)/BLKY);
 
     if      (mode == "waveplane-cw")
-        setWavePlaneCW<<<grid, block>>>(ptr, Ap0, wst, 0.5f*NX, 0.5f*NY, dx, dy);
+        setWavePlaneCW<<<grid, block>>>(ptr, A0, wst, 0.5f*NX, 0.5f*NY, dx, dy);
     else if (mode == "waveplane-pulsed")
-        setWavePlanePulsed<<<grid, block>>>(ptr, t_ptr, Ap0, wst, tau, 0.5f*NX, 0.5f*NY, dx, dy);
+        setWavePlanePulsed<<<grid, block>>>(ptr, t_ptr, A0, wst, tau, 0.5f*NX, 0.5f*NY, dx, dy);
     else if (mode == "focused-cw")
-        setFocusedCW<<<grid, block>>>(ptr, Ap0, MX, wst, 0.5f*NX, 0.5f*NY, dx, dy);
+        setFocusedCW<<<grid, block>>>(ptr, A0, MX, wst, 0.5f*NX, 0.5f*NY, dx, dy);
     else if (mode == "focused-pulsed")
-        setFocusedPulsed<<<grid, block>>>(ptr, t_ptr, Ap0, MX, wst, tau, 0.5f*NX, 0.5f*NY, dx, dy);
+        setFocusedPulsed<<<grid, block>>>(ptr, t_ptr, A0, MX, wst, tau, 0.5f*NX, 0.5f*NY, dx, dy);
     else
-        std::cerr << "[EFields] Unknown pump mode: " << mode << "\n";
+        std::cerr << "[EFields] Unknown " << label << " mode: " << mode << "\n";
 
     cudaDeviceSynchronize();
     print_line();
-    std::cout << "  Pump field :\n"
+    std::cout << "  " << label << " field :\n"
               << "    mode  = " << mode << "\n"
               << "    Power = " << Pwr  << " W\n"
               << "    waist = " << wst  << " μm\n";
     if (mode.find("focused") != std::string::npos) {
-        real_t xi = (Lcr * lp) / (2.0f * PI * np * w02);
+        real_t xi = (Lcr * lambda_val) / (2.0f * PI * n_val * w02);
         std::cout << "    focal point = " << fp << " μm\n"
                   << "    z_R  = " << zR  << " μm\n"
                   << "    η    = " << eta << "  (fp/z_R)\n"
-                  << "    ξ    = " << xi  << "  (L·λ_p / 2π·n_p·w²)\n";
+                  << "    ξ    = " << xi  << "  (L·λ / 2π·n·w²)\n";
     }
     if (mode.find("pulsed") != std::string::npos)
         std::cout << "    FWHM  = " << FWHM << " ps\n";
     print_line();
+}
+
+void EFields::set_pump_field(real_t Pwr, real_t FWHM, real_t wst, real_t fp, const std::string& mode) {
+    init_field(Api, np, lp, Pwr, FWHM, wst, fp, mode, "Pump");
+}
+
+void EFields::set_signal_field(real_t Pwr, real_t FWHM, real_t wst, real_t fp, const std::string& mode) {
+    init_field(As, ns, ls, Pwr, FWHM, wst, fp, mode, "Signal");
+}
+
+void EFields::set_idler_field(real_t Pwr, real_t FWHM, real_t wst, real_t fp, const std::string& mode) {
+    init_field(Ai, ni, li, Pwr, FWHM, wst, fp, mode, "Idler");
 }
 
 void EFields::noise_generator(cVecd_t& Vec) {

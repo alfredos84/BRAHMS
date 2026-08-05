@@ -108,12 +108,18 @@ struct EFields {
         for (auto& z : A) z = {dist(rng), dist(rng)};
     }
 
-    // ── Pump field initialisation ─────────────────────────────────────────────
-    void set_pump_field(real_t power_W, real_t fwhm_ps, real_t waist_um,
-                        real_t fp_um, const std::string& mode)
+    // ── Shared field initialisation ───────────────────────────────────────────
+    // Used by set_{pump,signal,idler}_field: initialises `target` (Ap for the
+    // pump, As/Ai directly for signal/idler — those are not reset per
+    // multipass the way the pump is via Api, so no separate "initial" buffer
+    // is needed for them) with a wave-plane or focused Gaussian beam, CW or
+    // pulsed, at the given wavelength/index.
+    void init_field(cVec_t& target, real_t n_val, real_t lambda_val,
+                     real_t power_W, real_t fwhm_ps, real_t waist_um,
+                     real_t fp_um, const std::string& mode, const char* label)
     {
         // Voltage amplitude [V/μm] — same convention as GPU engine
-        real_t A0   = std::sqrt(4.0f * power_W / (EPS0 * C * PI * _Cr->np * waist_um * waist_um));
+        real_t A0   = std::sqrt(4.0f * power_W / (EPS0 * C * PI * n_val * waist_um * waist_um));
         real_t sig  = fwhm_ps / (2.0f * std::sqrt(2.0f * std::log(2.0f)));
         bool pulsed  = (mode.find("pulsed") != std::string::npos);
         bool focused = (mode.find("focused") != std::string::npos);
@@ -124,7 +130,7 @@ struct EFields {
         // For the waist to form at z=fp, we need q(z=0) = +fp + iz_R, which gives MX = 1 - i·η.
         complex_t MX{1.0f, 0.0f};
         if (focused) {
-            real_t zR = _Cr->np * PI * w2 / _Cr->lp;
+            real_t zR = n_val * PI * w2 / lambda_val;
             MX = complex_t{1.0f, -fp_um / zR};
         }
 
@@ -148,27 +154,45 @@ struct EFields {
                 val = {A0 * std::exp(-r2 / w2), 0.0f};
             }
             if (pulsed) val *= std::exp(-t[it]*t[it] / (2.0f*sig*sig));
-            Ap[IDX(ix,iy,it)] = val;
+            target[IDX(ix,iy,it)] = val;
         }
-        Api = Ap;   // save initial pump
 
         print_line();
-        std::cout << "  Pump field :\n"
+        std::cout << "  " << label << " field :\n"
                   << "    mode  = " << mode << "\n"
                   << "    Power = " << power_W   << " W\n"
                   << "    waist = " << waist_um  << " μm\n";
         if (focused) {
-            real_t zR = _Cr->np * PI * w2 / _Cr->lp;
+            real_t zR = n_val * PI * w2 / lambda_val;
             real_t eta = fp_um / zR;
-            real_t xi  = (_Cr->Lcr * _Cr->lp) / (2.0f * PI * _Cr->np * w2);
+            real_t xi  = (_Cr->Lcr * lambda_val) / (2.0f * PI * n_val * w2);
             std::cout << "    focal point = " << fp_um << " μm\n"
                       << "    z_R  = " << zR  << " μm\n"
                       << "    η    = " << eta << "  (fp/z_R)\n"
-                      << "    ξ    = " << xi  << "  (L·λ_p / 2π·n_p·w²)\n";
+                      << "    ξ    = " << xi  << "  (L·λ / 2π·n·w²)\n";
         }
         if (pulsed)
             std::cout << "    FWHM  = " << fwhm_ps << " ps\n";
         print_line();
+    }
+
+    void set_pump_field(real_t power_W, real_t fwhm_ps, real_t waist_um,
+                        real_t fp_um, const std::string& mode)
+    {
+        init_field(Ap, _Cr->np, _Cr->lp, power_W, fwhm_ps, waist_um, fp_um, mode, "Pump");
+        Api = Ap;   // save initial pump (reset at the start of each multipass)
+    }
+
+    void set_signal_field(real_t power_W, real_t fwhm_ps, real_t waist_um,
+                          real_t fp_um, const std::string& mode)
+    {
+        init_field(As, _Cr->ns, _Cr->ls, power_W, fwhm_ps, waist_um, fp_um, mode, "Signal");
+    }
+
+    void set_idler_field(real_t power_W, real_t fwhm_ps, real_t waist_um,
+                         real_t fp_um, const std::string& mode)
+    {
+        init_field(Ai, _Cr->ni, _Cr->li, power_W, fwhm_ps, waist_um, fp_um, mode, "Idler");
     }
 
     // ── Dispersion step ───────────────────────────────────────────────────────

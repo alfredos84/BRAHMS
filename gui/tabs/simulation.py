@@ -1,3 +1,5 @@
+import os
+
 from PyQt6.QtWidgets import (
     QWidget, QHBoxLayout, QVBoxLayout, QSplitter,
     QGroupBox, QLabel, QComboBox, QDoubleSpinBox, QSpinBox,
@@ -11,7 +13,9 @@ _LOCALE_C = QLocale(QLocale.Language.C)   # always uses '.' as decimal separator
 
 
 class FieldGroupBox(QGroupBox):
-    """Reusable group for configuring signal or idler field."""
+    """Reusable group for configuring the signal or idler field: either
+    vacuum noise, or an injected field with the same four wave-plane/focused
+    x cw/pulsed modes offered for the pump."""
 
     def __init__(self, title, parent=None):
         super().__init__(title, parent)
@@ -33,29 +37,59 @@ class FieldGroupBox(QGroupBox):
         ig = QGridLayout(self.inject_widget)
         ig.setContentsMargins(0, 4, 0, 0)
         ig.setSpacing(4)
-        ig.addWidget(QLabel("Power (W)"), 0, 0)
+
+        ig.addWidget(QLabel("Field mode"), 0, 0)
+        self.cb_field_mode = QComboBox()
+        self.cb_field_mode.addItem("Wave plane, CW",          "waveplane-cw")
+        self.cb_field_mode.addItem("Wave plane, Pulsed",       "waveplane-pulsed")
+        self.cb_field_mode.addItem("Focused Gaussian, CW",     "focused-cw")
+        self.cb_field_mode.addItem("Focused Gaussian, Pulsed", "focused-pulsed")
+        self.cb_field_mode.setCurrentIndex(2)  # default: Focused Gaussian, CW
+        ig.addWidget(self.cb_field_mode, 0, 1)
+
+        ig.addWidget(QLabel("Power (W)"), 1, 0)
         self.sb_power = QDoubleSpinBox()
         self.sb_power.setLocale(_LOCALE_C)
         self.sb_power.setRange(1e-9, 1e6); self.sb_power.setDecimals(4)
         self.sb_power.setValue(0.001)
-        ig.addWidget(self.sb_power, 0, 1)
-        ig.addWidget(QLabel("Waist (μm)"), 1, 0)
+        ig.addWidget(self.sb_power, 1, 1)
+
+        ig.addWidget(QLabel("Waist (μm)"), 2, 0)
         self.sb_waist = QDoubleSpinBox()
         self.sb_waist.setLocale(_LOCALE_C)
         self.sb_waist.setRange(0.1, 10000); self.sb_waist.setValue(30)
-        ig.addWidget(self.sb_waist, 1, 1)
-        ig.addWidget(QLabel("FWHM (ps)"), 2, 0)
-        self.sb_fwhm = QDoubleSpinBox()
+        ig.addWidget(self.sb_waist, 2, 1)
+
+        self.lbl_fwhm = QLabel("FWHM (ps)")
+        self.sb_fwhm  = QDoubleSpinBox()
         self.sb_fwhm.setLocale(_LOCALE_C)
         self.sb_fwhm.setRange(0.001, 1e5); self.sb_fwhm.setValue(1.0)
-        ig.addWidget(self.sb_fwhm, 2, 1)
-        self.inject_widget.hide()
+        ig.addWidget(self.lbl_fwhm, 3, 0)
+        ig.addWidget(self.sb_fwhm, 3, 1)
 
+        self.lbl_focus = QLabel("Focal position")
+        self.cb_focus  = QComboBox()
+        self.cb_focus.addItems(["Crystal centre (0.5·L)", "Crystal start", "Custom"])
+        ig.addWidget(self.lbl_focus, 4, 0)
+        ig.addWidget(self.cb_focus, 4, 1)
+
+        self.inject_widget.hide()
         layout.addWidget(self.inject_widget)
 
         self.rb_inject.toggled.connect(self.inject_widget.setVisible)
         self.rb_noise.toggled.connect(
             lambda checked: self.inject_widget.setVisible(not checked))
+        self.cb_field_mode.currentIndexChanged.connect(self._update_field_visibility)
+        self._update_field_visibility()
+
+    def _update_field_visibility(self):
+        mode    = self.cb_field_mode.currentData()
+        pulsed  = "pulsed" in mode
+        focused = "focused" in mode
+        self.lbl_fwhm.setVisible(pulsed)
+        self.sb_fwhm.setVisible(pulsed)
+        self.lbl_focus.setVisible(focused)
+        self.cb_focus.setVisible(focused)
 
 
 class SimulationTab(QWidget):
@@ -346,6 +380,33 @@ class SimulationTab(QWidget):
         g.addWidget(self.lbl_mem, 2, 0, 1, 4)
         for sb in [self.sb_nx, self.sb_ny, self.sb_nz, self.sb_nt]:
             sb.valueChanged.connect(self._update_memory_estimate)
+
+        lbl_gpu = QLabel("Only for GPU kernels:")
+        lbl_gpu.setObjectName("unitLabel")
+        g.addWidget(lbl_gpu, 3, 0, 1, 4)
+        for col, label in enumerate(["BLKX", "BLKY", "BLKT"]):
+            g.addWidget(QLabel(label), 4, col)
+        self.sb_blkx = QSpinBox(); self.sb_blkx.setRange(1, 1024); self.sb_blkx.setValue(16)
+        self.sb_blky = QSpinBox(); self.sb_blky.setRange(1, 1024); self.sb_blky.setValue(16)
+        self.sb_blkt = QSpinBox(); self.sb_blkt.setRange(1, 1024); self.sb_blkt.setValue(16)
+        for tip in (self.sb_blkx, self.sb_blky, self.sb_blkt):
+            tip.setToolTip("CUDA thread-block dimensions (-DBLKX/-DBLKY/-DBLKT).\n"
+                           "Compile-time only; ignored by the CPU (OpenMP) backend.")
+        for col, sb in enumerate([self.sb_blkx, self.sb_blky, self.sb_blkt]):
+            g.addWidget(sb, 5, col)
+
+        lbl_cpu = QLabel("Only for CPU (OpenMP) kernels:")
+        lbl_cpu.setObjectName("unitLabel")
+        g.addWidget(lbl_cpu, 6, 0, 1, 4)
+        g.addWidget(QLabel("Threads"), 7, 0)
+        self.sb_omp_threads = QSpinBox()
+        _ncpu = os.cpu_count() or 1
+        self.sb_omp_threads.setRange(1, _ncpu)
+        self.sb_omp_threads.setValue(_ncpu)
+        self.sb_omp_threads.setToolTip(
+            "OMP_NUM_THREADS for the CPU run. Defaults to all logical cores "
+            f"detected on this machine ({_ncpu}). Ignored by the GPU backend.")
+        g.addWidget(self.sb_omp_threads, 7, 1)
         return gb
 
     def _build_output_group(self):
@@ -486,7 +547,8 @@ class SimulationTab(QWidget):
 
     def _collect_params(self, backend="cuda"):
         params = {
-            "backend":  backend,
+            "backend":     backend,
+            "omp_threads": self.sb_omp_threads.value(),
             "process":  self.cb_process.currentText(),
             "crystal":  self.cb_crystal.currentText(),
             "length_mm":    self.sb_length.value(),
@@ -504,17 +566,27 @@ class SimulationTab(QWidget):
                 "fwhm_ps":   self.sb_fwhm.value(),
             },
             "signal": {
-                "lambda_um": self.sb_ls.value(),
-                "mode": "noise" if self.signal_gb.rb_noise.isChecked() else "inject",
+                "lambda_um":  self.sb_ls.value(),
+                "excitation": "noise" if self.signal_gb.rb_noise.isChecked() else "inject",
+                "mode":       self.signal_gb.cb_field_mode.currentData(),
+                "power_W":    self.signal_gb.sb_power.value(),
+                "waist_um":   self.signal_gb.sb_waist.value(),
+                "fwhm_ps":    self.signal_gb.sb_fwhm.value(),
             },
             "idler": {
-                "lambda_um": self.sb_li.value(),
+                "lambda_um":  self.sb_li.value(),
                 "degenerate": self.chk_degen.isChecked(),
-                "mode": "noise" if self.idler_gb.rb_noise.isChecked() else "inject",
+                "excitation": "noise" if self.idler_gb.rb_noise.isChecked() else "inject",
+                "mode":       self.idler_gb.cb_field_mode.currentData(),
+                "power_W":    self.idler_gb.sb_power.value(),
+                "waist_um":   self.idler_gb.sb_waist.value(),
+                "fwhm_ps":    self.idler_gb.sb_fwhm.value(),
             },
             "grid": {
                 "NX": self.sb_nx.value(), "NY": self.sb_ny.value(),
                 "NZ": self.sb_nz.value(), "NT": self.sb_nt.value(),
+                "BLKX": self.sb_blkx.value(), "BLKY": self.sb_blky.value(),
+                "BLKT": self.sb_blkt.value(),
             },
         }
         if self.chk_thermal.isChecked():

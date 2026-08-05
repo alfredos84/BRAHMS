@@ -5,6 +5,8 @@ Always pulsed (temporal envelope) + focused Gaussian beam.
 Temporal window auto-computed as 6×FWHM (overridable).
 """
 
+import os
+
 from PyQt6.QtWidgets import (
     QWidget, QHBoxLayout, QVBoxLayout, QSplitter,
     QGroupBox, QLabel, QComboBox, QDoubleSpinBox, QSpinBox,
@@ -261,6 +263,33 @@ class FullSimulationTab(QWidget):
         for sb in [self.sb_nx, self.sb_ny, self.sb_nz, self.sb_nt]:
             sb.valueChanged.connect(self._update_memory_estimate)
 
+        lbl_gpu = QLabel("Only for GPU kernels:")
+        lbl_gpu.setObjectName("unitLabel")
+        g.addWidget(lbl_gpu, 3, 0, 1, 4)
+        for col, lbl in enumerate(["BLKX", "BLKY", "BLKT"]):
+            g.addWidget(QLabel(lbl), 4, col)
+        self.sb_blkx = QSpinBox(); self.sb_blkx.setRange(1, 1024); self.sb_blkx.setValue(16)
+        self.sb_blky = QSpinBox(); self.sb_blky.setRange(1, 1024); self.sb_blky.setValue(16)
+        self.sb_blkt = QSpinBox(); self.sb_blkt.setRange(1, 1024); self.sb_blkt.setValue(16)
+        for tip in (self.sb_blkx, self.sb_blky, self.sb_blkt):
+            tip.setToolTip("CUDA thread-block dimensions (-DBLKX/-DBLKY/-DBLKT).\n"
+                           "Compile-time only; ignored by the CPU (OpenMP) backend.")
+        for col, sb in enumerate([self.sb_blkx, self.sb_blky, self.sb_blkt]):
+            g.addWidget(sb, 5, col)
+
+        lbl_cpu = QLabel("Only for CPU (OpenMP) kernels:")
+        lbl_cpu.setObjectName("unitLabel")
+        g.addWidget(lbl_cpu, 6, 0, 1, 4)
+        g.addWidget(QLabel("Threads"), 7, 0)
+        self.sb_omp_threads = QSpinBox()
+        _ncpu = os.cpu_count() or 1
+        self.sb_omp_threads.setRange(1, _ncpu)
+        self.sb_omp_threads.setValue(_ncpu)
+        self.sb_omp_threads.setToolTip(
+            "OMP_NUM_THREADS for the CPU run. Defaults to all logical cores "
+            f"detected on this machine ({_ncpu}). Ignored by the GPU backend.")
+        g.addWidget(self.sb_omp_threads, 7, 1)
+
         return gb
 
     def _build_temporal_group(self):
@@ -353,7 +382,8 @@ class FullSimulationTab(QWidget):
         focal_preset = "Crystal centre (0.5·L)" if "centre" in focus_text else "Crystal start"
 
         return {
-            "backend":  backend,
+            "backend":     backend,
+            "omp_threads": self.sb_omp_threads.value(),
             "process":  self.cb_process.currentText(),
             "crystal":  self.cb_crystal.currentText(),
             "length_mm":       self.sb_length.value(),
@@ -386,6 +416,9 @@ class FullSimulationTab(QWidget):
                 "NY": self.sb_ny.value(),
                 "NZ": self.sb_nz.value(),
                 "NT": self.sb_nt.value(),
+                "BLKX": self.sb_blkx.value(),
+                "BLKY": self.sb_blky.value(),
+                "BLKT": self.sb_blkt.value(),
             },
             "thermal":      {"enabled": False},
             "t_window_ps":  self.sb_twindow.value(),

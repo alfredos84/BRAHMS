@@ -19,7 +19,7 @@ NZ   ?= 100
 NT   ?= 512
 BLKX ?= 16
 BLKY ?= 16
-BLKT ?= 128
+BLKT ?= 16
 
 # ── Compute capability (override for your GPU, e.g. sm_86 for RTX 3090) ──────
 ARCH ?= sm_75

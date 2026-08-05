@@ -151,7 +151,8 @@ class MainWindow(QMainWindow):
         out_dir = os.path.join(_root, "output")
 
         grid = params.get("grid", {"NX": 128, "NY": 128, "NZ": 100, "NT": 512})
-        self._runner.run(cfg, grid, out_dir, backend=backend)
+        self._runner.run(cfg, grid, out_dir, backend=backend,
+                          omp_threads=params.get("omp_threads"))
 
     def _on_full_run_requested(self, params: dict):
         self._active_run_source = "full"
@@ -178,7 +179,8 @@ class MainWindow(QMainWindow):
         out_dir = os.path.join(_root, "output_full")
 
         grid = params.get("grid", {"NX": 128, "NY": 128, "NZ": 200, "NT": 256})
-        self._runner.run(cfg, grid, out_dir, backend=backend)
+        self._runner.run(cfg, grid, out_dir, backend=backend,
+                          omp_threads=params.get("omp_threads"))
 
     def _run_gpu(self):
         self.tabs.setCurrentWidget(self.single_sim_tabs)

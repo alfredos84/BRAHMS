@@ -32,6 +32,25 @@ def _dk_qpm(k_p: float, k_s: float, k_i: float, Lambda_um: float) -> float:
     return dk_bare - (2.0 * math.pi / Lambda_um) if Lambda_um > 0 else dk_bare
 
 
+def _field_block(field_params: dict, default_waist_um: float,
+                  default_fwhm_ps: float, Lcr_mm: float) -> dict:
+    """Build the fields.signal / fields.idler JSON block.
+
+    "excitation" selects vacuum noise vs. an injected field; "mode" (used
+    only when injecting) is one of the four wave-plane/focused x cw/pulsed
+    modes, same convention as the pump's "mode".
+    """
+    excitation = field_params.get("excitation", "noise")
+    return {
+        "noise":          excitation == "noise",
+        "power_W":        float(field_params.get("power_W", 0.0)),
+        "waist_um":       float(field_params.get("waist_um", default_waist_um)),
+        "fwhm_ps":        float(field_params.get("fwhm_ps", default_fwhm_ps)),
+        "focal_point_um": Lcr_mm * 500.0,  # crystal centre in μm (same convention as pump)
+        "mode":           field_params.get("mode", "waveplane-cw"),
+    }
+
+
 def build_config(params: dict, db: CrystalDB | None = None) -> dict:
     """
     Build a complete engine JSON config from GUI params.
@@ -222,10 +241,8 @@ def build_config(params: dict, db: CrystalDB | None = None) -> dict:
                 "focal_point_um": Lcr_mm * 500.0,  # crystal centre in μm
                 "mode":           pump_mode,
             },
-            "signal": {
-                "noise": params["signal"].get("mode", "noise") == "noise",
-                "power_W": float(params["signal"].get("power_W", 0.0)),
-            },
+            "signal": _field_block(params["signal"], waist_um, fwhm_ps, Lcr_mm),
+            "idler":  _field_block(params["idler"],  waist_um, fwhm_ps, Lcr_mm),
             "t_window_ps": t_window,
         },
         "save_mode": {
