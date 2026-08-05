@@ -313,7 +313,6 @@ class SimulationTab(QWidget):
         wl.setSpacing(4)
 
         self.chk_degen = QCheckBox("Degenerate  (signal = idler)")
-        wl.addWidget(self.chk_degen)
 
         self.idler_gb = FieldGroupBox("Idler Field")
         g = self.idler_gb.layout()
@@ -327,6 +326,7 @@ class SimulationTab(QWidget):
         row.addWidget(self.sb_li)
         g.insertLayout(0, row)
         wl.addWidget(self.idler_gb)
+        wl.addWidget(self.chk_degen)
         return wrapper
 
     def _build_grid_group(self):
@@ -442,9 +442,11 @@ class SimulationTab(QWidget):
         if shg:
             self.sb_ls.setValue(self.sb_lp.value() / 2)
 
-        # SHG is always degenerate — show checkbox but disabled+checked
-        if proc == "SHG":
-            self.chk_degen.setVisible(True)
+        # SHG is always degenerate — force checked+disabled. For every other
+        # process the checkbox stays visible and user-toggleable at all times
+        # (no hide/show across processes, so its state is never surprising).
+        self.chk_degen.setVisible(True)
+        if shg:
             self.chk_degen.setChecked(True)
             self.chk_degen.setEnabled(False)
         else:
@@ -452,7 +454,6 @@ class SimulationTab(QWidget):
                 # Was locked by SHG — uncheck first so idler group re-enables
                 self.chk_degen.setChecked(False)
             self.chk_degen.setEnabled(True)
-            self.chk_degen.setVisible(proc == "OPG")
         self._update_memory_estimate()
 
     def _on_degenerate(self, checked):
