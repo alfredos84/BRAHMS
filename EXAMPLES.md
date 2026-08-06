@@ -33,11 +33,17 @@ and group-velocity dispersion GVD($\lambda$) at a given temperature.
 
 ## 2. Phase Matching
 
-Given the selected crystal and a set of experimental parameters (pump
-wavelength, temperature, polarization, and, for QPM crystals, grating
-period), this tab computes the phase-matching condition ($\Delta k$ as a
-function of the relevant parameter) for the three-wave-mixing process you
-want to study (SHG, SFG, or OPG).
+Given the selected crystal and a set of experimental parameters, this tab
+computes the phase-matching condition for the three-wave-mixing process you
+want to study (SHG, SFG, DFG, or OPG). It is split into two sub-tabs
+matching the crystal's phase-matching mechanism: **QPM**, for
+periodically-poled crystals, shows $\lambda_s,\lambda_i$ vs. temperature and
+grating period; **Birefringent**, for uniaxial crystals, shows the
+phase-matching angle $\theta_\mathrm{pm}$ vs. wavelength for the selected PM
+type (e.g., ooe, eoe), and lets you send the operating point (crystal,
+wavelengths, PM type, angle) directly to the Simulation tabs.
+
+![Phase Matching — Birefringent tab, β-BBO](./figures/EX_TAB_PM.png)
 
 ## 3. Single simulation
 
