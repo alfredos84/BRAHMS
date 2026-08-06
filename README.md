@@ -4,6 +4,17 @@ A cross-platform GUI for simulating three-wave mixing processes (SHG, SFG, OPG, 
 
 ![Example of the app output](./figures/plot_window_example.png)
 
+## Contents
+
+- [Package Description](#package-description)
+- [Requirements](#requirements)
+- [Install](#install)
+  - [Linux (Ubuntu/Debian)](#linux-ubuntudebian)
+  - [Windows](#windows)
+  - [Manual run](#manual-run-any-platform-if-you-prefer-not-to-use-the-installers)
+- [Repository layout](#repository-layout)
+- [License](#license)
+
 ## Package Description
 
 **BRAHMS** is a GPU-accelerated toolkit that simulates the coupled wave equations (CWEs) describing three-wave mixing (TWM) processes in second-order nonlinear media. The physics solved in the package is written to be as general as possible, including diffraction and dispersion effects within a single simulation. This means that the model is based on a (3+1)D physical problem (three spatial dimensions and one temporal dimension). The model incorporates terms for diffraction, dispersion, and linear and nonlinear absorptions.
@@ -14,9 +25,9 @@ With this package, users can:
   generation (SHG) is a particular case of SFG) and optical parametric
   generation (OPG) processes.
 
-$$ \frac{\partial A_{p}}{\partial z} = i\kappa_p A_{s} A_{i}e^{\mp i\Delta k z} + \left(\hat{\mathcal{D}}^{(\tau)}_{p}+\hat{\mathcal{D}}^{(xy)}_{p} - \frac{\alpha_p}{2} \right)A_{p} $$
-$$ \frac{\partial A_{s}}{\partial z} = i\kappa_s A_{p} A_{i}^*e^{\pm i\Delta k z} + \left(\hat{\mathcal{D}}^{(\tau)}_{s}+\hat{\mathcal{D}}^{(xy)}_{s} - \frac{\alpha_s}{2} \right)A_{s} $$
-$$ \frac{\partial A_{i}}{\partial z} = i\kappa_i A_{p} A_{s}^*e^{\pm i\Delta k z} + \left(\hat{\mathcal{D}}^{(\tau)}_{i}+\hat{\mathcal{D}}^{(xy)}_{i} - \frac{\alpha_i}{2} \right)A_{i}$$
+$$ \frac{\partial A_{p}}{\partial z} = i\kappa_p A_{s} A_{i}e^{\mp i\Delta k z} + \left(\hat{\mathcal{D}}^{(\tau)}_{p}+\hat{\mathcal{D}}^{(xy)}_{p} \right)A_{p} $$
+$$ \frac{\partial A_{s}}{\partial z} = i\kappa_s A_{p} A_{i}^*e^{\pm i\Delta k z} + \left(\hat{\mathcal{D}}^{(\tau)}_{s}+\hat{\mathcal{D}}^{(xy)}_{s}\right)A_{s} $$
+$$ \frac{\partial A_{i}}{\partial z} = i\kappa_i A_{p} A_{s}^*e^{\pm i\Delta k z} + \left(\hat{\mathcal{D}}^{(\tau)}_{i}+\hat{\mathcal{D}}^{(xy)}_{i}\right)A_{i}$$
 
 where
 
@@ -132,3 +143,11 @@ icon/           App icon (icon.png / icon.ico)
 install/        Installers and desktop launchers
 main.py         Entry point
 ```
+
+## License
+
+BRAHMS is released under the [MIT License](./LICENSE) — you can use, modify,
+and redistribute it (including commercially), provided the copyright notice
+is kept. See [`LICENSE`](./LICENSE) for the full text.
+
+Security issues can be reported as described in [`SECURITY.md`](./SECURITY.md).
