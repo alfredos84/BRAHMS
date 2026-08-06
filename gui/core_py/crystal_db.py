@@ -26,7 +26,6 @@ _DEFAULT_DB = Path(__file__).parent.parent.parent / "crystals" / "crystals.db"
 # MgO:PPLN: Gayer et al., Appl. Phys. B 91, 343-348 (2008) — LiNbO3 (niobate).
 # MgO:sPPLT: Bruner et al., Opt. Lett. 28, 194-196 (2003) — LiTaO3 (tantalate);
 #   NOT the same paper/formula as MgO:PPLN (different host crystal entirely).
-# ZGP: Zelmon et al., JOSAB 18, 1332 (2001).
 # Temperature factor for the LiNbO3/Gayer family: f = (T-24.5)*(T+570.82), T in °C.
 
 _LN_FORMULA = (
@@ -48,9 +47,6 @@ _SLT_FORMULA = (
     "(L**2 - (C + CT*(T + 273.15)**2)**2) + "
     "E/(L**2 - F**2) + G/(L**2 - H**2) + D*L**2)"
 )
-
-_ZGP_FORMULA_E = "sqrt(A + B*L**2/(L**2 - C) + D*L**2/(L**2 - E))"
-_ZGP_FORMULA_O = "sqrt(A + B*L**2/(L**2 - C) + D*L**2/(L**2 - E))"
 
 # BBO (beta-BaB2O4): Kato, IEEE J. Quantum Electron. 22, 1013 (1986) —
 # Sellmeier fit at T=20 C (no T term in the sqrt; no T-dependence is
@@ -132,35 +128,6 @@ PRELOADED: list[dict] = [
             "tantalate}, journal={Optics Letters}, volume={28}, "
             "pages={194--196}, year={2003}}"
         ),
-        "preloaded":  1,
-    },
-    # ── ZGP (ZnGeP2)  birefringent ────────────────────────────────────
-    {
-        "name":       "ZGP",
-        "type":       "Birefringent-uniaxial",
-        "lambda_min": 2.0,
-        "lambda_max": 8.0,
-        "deff":       47.8,        # pm/V  (effective for type-I phase matching)
-        "alpha_p":    1.57e-4,
-        "alpha_s":    0.17e-6,
-        "alpha_i":    0.17e-6,
-        "formula_e":  _ZGP_FORMULA_E,
-        "formula_o":  _ZGP_FORMULA_O,
-        "coeffs_e":   json.dumps({
-            "A": 8.0929, "B": 1.8649,
-            "C": 0.41468, "D": 0.84052, "E": 452.05,
-        }),
-        "coeffs_o":   json.dumps({
-            "A": 8.0409, "B": 1.68625,
-            "C": 0.40824, "D": 1.2880, "E": 611.05,
-        }),
-        "kappa":      35.0,        # W/(m·K)  — high for ZGP
-        "alpha_th":   12.0e-6,
-        "cp":         430.0,
-        "rho":        4120.0,
-        "lambda0":    0.0,         # no QPM
-        "T0":         25.0,
-        "reference":  "Zelmon et al., JOSAB 18, 1332 (2001)",
         "preloaded":  1,
     },
     # ── BBO (beta-BaB2O4)  negative uniaxial birefringent ─────────────

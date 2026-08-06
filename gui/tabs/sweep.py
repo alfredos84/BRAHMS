@@ -374,7 +374,7 @@ class SweepTab(QWidget):
         gc = QHBoxLayout(gb_crys)
         gc.setSpacing(6)
         self.cb_crystal = QComboBox()
-        self.cb_crystal.addItems(["MgO:PPLN", "MgO:sPPLT", "ZGP"])
+        self.cb_crystal.addItems(["MgO:PPLN", "MgO:sPPLT", "BBO"])
         gc.addWidget(self.cb_crystal)
         lv.addWidget(gb_crys)
 

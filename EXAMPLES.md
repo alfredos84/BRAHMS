@@ -11,7 +11,7 @@ equation(s), specifying whether it is quasi-phase-matched (QPM) or
 birefringent, together with its relevant parameters ($d_\mathrm{eff}$,
 linear and two-photon absorption, walk-off angle, thermal properties,
 grating period for QPM crystals, etc.). Common crystals (e.g., MgO:PPLN,
-MgO:sPPLT, PPLN, ZGP) are pre-loaded with literature Sellmeier
+MgO:sPPLT, BBO) are pre-loaded with literature Sellmeier
 coefficients; you can add, edit, or remove custom crystals here.
 
 **Properties.** The crystal library on the left is fully customizable —
