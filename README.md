@@ -14,6 +14,8 @@ A cross-platform GUI for simulating three-wave mixing processes (SHG, SFG, OPG, 
   - [Manual run](#manual-run-any-platform-if-you-prefer-not-to-use-the-installers)
 - [Repository layout](#repository-layout)
 - [License](#license)
+- [Examples](./EXAMPLES.md)
+- [Contributing](./CONTRIBUTING.md)
 
 ## Package Description
 
@@ -151,3 +153,4 @@ and redistribute it (including commercially), provided the copyright notice
 is kept. See [`LICENSE`](./LICENSE) for the full text.
 
 Security issues can be reported as described in [`SECURITY.md`](./SECURITY.md).
+Questions, bug reports, or suggestions? See [`CONTRIBUTING.md`](./CONTRIBUTING.md).
