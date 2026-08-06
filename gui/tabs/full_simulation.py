@@ -15,6 +15,8 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt, pyqtSignal, QLocale
 
+from ..core_py.crystal_db import get_db
+
 _LOCALE_C = QLocale(QLocale.Language.C)
 
 # GPU memory budget constants (bytes)
@@ -215,30 +217,62 @@ class FullSimulationTab(QWidget):
         self.sb_lambda.setValue(6.920)
         g.addWidget(self.sb_lambda, 3, 1)
 
+        # Birefringent-uniaxial crystals (e.g. BBO) have no grating — instead
+        # every field's axis (o, or e mixed at this angle) is set by the PM
+        # type + angle found in Phase Matching → Birefringent and sent here
+        # via "Load into Simulation". Both are read-only summaries of that
+        # choice; re-run "Load into Simulation" to change them.
+        g.addWidget(QLabel("PM type (birefringent)"), 4, 0)
+        self.lbl_pm_type = QLabel("—")
+        self.lbl_pm_type.setObjectName("valueLabel")
+        g.addWidget(self.lbl_pm_type, 4, 1)
+
+        g.addWidget(QLabel("θ_pm (deg, birefringent)"), 5, 0)
+        self.lbl_theta = QLabel("—")
+        self.lbl_theta.setObjectName("valueLabel")
+        g.addWidget(self.lbl_theta, 5, 1)
+
         self.chk_force_dk = QCheckBox("Force Δk (μm⁻¹)")
-        g.addWidget(self.chk_force_dk, 4, 0)
+        g.addWidget(self.chk_force_dk, 6, 0)
         self.sb_dk_forced = QDoubleSpinBox()
         self.sb_dk_forced.setRange(-10.0, 10.0); self.sb_dk_forced.setDecimals(6)
         self.sb_dk_forced.setValue(0.0)
         self.sb_dk_forced.setEnabled(False)
-        g.addWidget(self.sb_dk_forced, 4, 1)
+        g.addWidget(self.sb_dk_forced, 6, 1)
         self.chk_force_dk.toggled.connect(self.sb_dk_forced.setEnabled)
 
-        g.addWidget(QLabel("LX (mm)"), 5, 0)
+        g.addWidget(QLabel("LX (mm)"), 7, 0)
         self.sb_lx = QDoubleSpinBox()
         self.sb_lx.setRange(0.01, 100); self.sb_lx.setDecimals(3); self.sb_lx.setValue(0.5)
-        g.addWidget(self.sb_lx, 5, 1)
+        g.addWidget(self.sb_lx, 7, 1)
 
-        g.addWidget(QLabel("LY (mm)"), 6, 0)
+        g.addWidget(QLabel("LY (mm)"), 8, 0)
         self.sb_ly = QDoubleSpinBox()
         self.sb_ly.setRange(0.01, 100); self.sb_ly.setDecimals(3); self.sb_ly.setValue(0.5)
-        g.addWidget(self.sb_ly, 6, 1)
+        g.addWidget(self.sb_ly, 8, 1)
 
         note = QLabel("LX, LY auto-set from waist (6·w₀ each side)")
         note.setObjectName("unitLabel"); note.setWordWrap(True)
-        g.addWidget(note, 7, 0, 1, 2)
+        g.addWidget(note, 9, 0, 1, 2)
+
+        self._pm_type_value: str | None = None
+        self._theta_deg_value: float | None = None
+        self.cb_crystal.currentIndexChanged.connect(self._on_crystal_changed)
 
         return gb
+
+    def _on_crystal_changed(self, _idx=None):
+        db = get_db()
+        cr = db.get(self.cb_crystal.currentText()) or {}
+        is_birefringent = cr.get("type", "") == "Birefringent-uniaxial"
+        self.sb_lambda.setEnabled(not is_birefringent)
+        self.lbl_pm_type.setEnabled(is_birefringent)
+        self.lbl_theta.setEnabled(is_birefringent)
+        if not is_birefringent:
+            self._pm_type_value = None
+            self._theta_deg_value = None
+            self.lbl_pm_type.setText("—")
+            self.lbl_theta.setText("—")
 
     def _build_grid_group(self):
         gb = QGroupBox("Numerical Grid")
@@ -389,6 +423,8 @@ class FullSimulationTab(QWidget):
             "length_mm":       self.sb_length.value(),
             "temperature":     self.sb_temp.value(),
             "grating_um":      self.sb_lambda.value(),
+            **({"pm_type": self._pm_type_value} if self._pm_type_value else {}),
+            **({"theta_deg": self._theta_deg_value} if self._theta_deg_value is not None else {}),
             **({"dk": self.sb_dk_forced.value()} if self.chk_force_dk.isChecked() else {}),
             "lx_mm":           self.sb_lx.value(),
             "ly_mm":           self.sb_ly.value(),
@@ -436,3 +472,22 @@ class FullSimulationTab(QWidget):
         self.sb_li.setValue(li)
         self.sb_temp.setValue(T)
         self.sb_lambda.setValue(Lambda)
+
+    def load_pm_birefringent(self, crystal: str, process: str, lp: float, ls: float,
+                             li: float, T: float, pm_type: str, theta_deg: float):
+        idx = self.cb_crystal.findText(crystal)
+        if idx >= 0:
+            self.cb_crystal.setCurrentIndex(idx)
+        idx_p = self.cb_process.findText(process)
+        if idx_p >= 0:
+            self.cb_process.setCurrentIndex(idx_p)
+        self.sb_lp.setValue(lp)
+        self.sb_ls.setValue(ls)
+        self.sb_li.setValue(li)
+        self.sb_temp.setValue(T)
+        if abs(ls - li) > 1e-6:
+            self.chk_degen.setChecked(False)
+        self._pm_type_value   = pm_type
+        self._theta_deg_value = theta_deg
+        self.lbl_pm_type.setText(pm_type)
+        self.lbl_theta.setText(f"{theta_deg:.3f}°")

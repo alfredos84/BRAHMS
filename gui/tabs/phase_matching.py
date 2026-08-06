@@ -652,9 +652,13 @@ class _QPMPanel(QWidget):
 
 class _BirefringentPanel(QWidget):
 
+    # crystal, process, lp_um, ls_um, li_um, T_C, pm_type, theta_deg
+    pm_birefringent_found = pyqtSignal(str, str, float, float, float, float, str, float)
+
     def __init__(self, db, parent=None):
         super().__init__(parent)
         self._db = db
+        self._pm_result = None
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(8, 8, 8, 8)
@@ -727,6 +731,10 @@ class _BirefringentPanel(QWidget):
             lbl.setWordWrap(True)
         go.addWidget(self.lbl_op_l2, 4, 0, 1, 2)
         go.addWidget(self.lbl_op_pm, 5, 0, 1, 2)
+
+        self.btn_load_sim = QPushButton("→ Load into Simulation")
+        self.btn_load_sim.setEnabled(False)
+        go.addWidget(self.btn_load_sim, 6, 0, 1, 2)
         lv.addWidget(gb_op)
 
         # ── Scan Ranges ───────────────────────────────────────────────
@@ -752,8 +760,6 @@ class _BirefringentPanel(QWidget):
 
         _add_range(0, "λ₁ scan (μm)", "sb_l1min", "sb_l1max", "sb_l1N",
                    0.48, 0.75, 300, 4, rmin=0.05, rmax=100)
-        _add_range(4, "T scan (°C)",  "sb_Tmin",  "sb_Tmax",  "sb_TN",
-                   -20, 80, 200, 1, rmin=-273, rmax=1000)
         lv.addWidget(gb_sc)
 
         self.lbl_status = QLabel("")
@@ -764,21 +770,13 @@ class _BirefringentPanel(QWidget):
         self.btn_calc = QPushButton("Calculate")
         self.btn_calc.setObjectName("runButton")
         lv.addWidget(self.btn_calc)
-
-        note = QLabel(
-            "Note: the (3+1)D simulation engine currently propagates every "
-            "field on the extraordinary axis only — angle-tuned birefringent "
-            "propagation from this tab is not yet used there.")
-        note.setObjectName("unitLabel")
-        note.setWordWrap(True)
-        lv.addWidget(note)
         lv.addStretch()
 
         scroll.setWidget(left)
         splitter.addWidget(scroll)
 
-        # ── RIGHT: 2 plots  (1 row × 2 cols) ───────────────────────────
-        self.canvas = PlotCanvas(nrows=1, ncols=2, figsize=(14, 5), dpi=95)
+        # ── RIGHT: 1 plot ───────────────────────────────────────────────
+        self.canvas = PlotCanvas(nrows=1, ncols=1, figsize=(9, 5.5), dpi=95)
         splitter.addWidget(self.canvas)
         splitter.setStretchFactor(0, 0)
         splitter.setStretchFactor(1, 1)
@@ -790,6 +788,7 @@ class _BirefringentPanel(QWidget):
         self.cb_process.currentIndexChanged.connect(self._on_process_changed)
         self.btn_calc.clicked.connect(self._calculate)
         self.btn_find.clicked.connect(self._find_pm_point)
+        self.btn_load_sim.clicked.connect(self._emit_load_to_sim)
         self._on_process_changed(0)
 
     # ── Setup ───────────────────────────────────────────────────────────
@@ -819,17 +818,12 @@ class _BirefringentPanel(QWidget):
         self.lbl_status.setText(cr.get("reference", ""))
 
     def _init_axes(self):
-        titles = [
-            ("λ₁  (μm)", "θ_pm  (deg)", "θ_pm  vs  Wavelength"),
-            ("T  (°C)",  "θ_pm  (deg)", "θ_pm  vs  Temperature"),
-        ]
-        for i, (xl, yl, tl) in enumerate(titles):
-            ax = self.canvas.get_ax(i)
-            ax.set_xlabel(xl, fontsize=9)
-            ax.set_ylabel(yl, fontsize=9)
-            ax.set_title(tl, fontsize=9)
-            ax.text(0.5, 0.5, "No data", transform=ax.transAxes,
-                    ha="center", va="center", color="#555555", fontsize=10)
+        ax = self.canvas.get_ax(0)
+        ax.set_xlabel("λ₁  (μm)", fontsize=9)
+        ax.set_ylabel("θ_pm  (deg)", fontsize=9)
+        ax.set_title("θ_pm  vs  Wavelength", fontsize=9)
+        ax.text(0.5, 0.5, "No data", transform=ax.transAxes,
+                ha="center", va="center", color="#555555", fontsize=10)
         self.canvas.fig.tight_layout()
         self.canvas.refresh()
 
@@ -865,21 +859,12 @@ class _BirefringentPanel(QWidget):
         process   = self.cb_process.currentText()
         lam_fixed = self.sb_op_l3.value()
         T_fixed   = self.sb_op_T.value()
-        lam1_fixed = self.sb_op_l1.value()
 
-        # ── Plot 1: θ_pm vs λ₁ scan (T fixed) ──────────────────────────
+        # θ_pm vs λ₁ scan (T fixed)
         lam_scan = np.linspace(self.sb_l1min.value(), self.sb_l1max.value(),
                                int(self.sb_l1N.value()))
         lam1, lam2, lam3 = wavelengths_for_scan(lam_scan, lam_fixed, process)
         theta_vs_lam = calc.theta_pm(lam1, lam2, lam3, T_fixed, pm_type)
-
-        # ── Plot 2: θ_pm vs T scan (λ₁, λ₃ fixed) ──────────────────────
-        T_arr = np.linspace(self.sb_Tmin.value(), self.sb_Tmax.value(),
-                            int(self.sb_TN.value()))
-        lam1f, lam2f, lam3f = wavelengths_for_scan(lam1_fixed, lam_fixed, process)
-        theta_vs_T = calc.theta_pm(lam1f, lam2f, lam3f, T_arr, pm_type)
-        theta_vs_T = np.full_like(T_arr, theta_vs_T) if np.isscalar(theta_vs_T) \
-            else theta_vs_T
 
         pm_label = self.cb_pm_type.currentText()
 
@@ -892,16 +877,6 @@ class _BirefringentPanel(QWidget):
         ax0.set_xlabel("λ₁  (μm)", fontsize=9)
         ax0.set_ylabel("θ_pm  (deg)", fontsize=9)
         ax0.set_title(f"θ_pm(λ₁)  [{pm_label},  T = {T_fixed:.1f} °C]", fontsize=9)
-
-        ax1 = self.canvas.get_ax(1)
-        ax1.clear(); self.canvas._style_ax(ax1)
-        mask_T = np.isfinite(theta_vs_T)
-        if mask_T.any():
-            ax1.plot(T_arr[mask_T], np.asarray(theta_vs_T)[mask_T],
-                    color="#40c4ff", lw=1.8)
-        ax1.set_xlabel("T  (°C)", fontsize=9)
-        ax1.set_ylabel("θ_pm  (deg)", fontsize=9)
-        ax1.set_title(f"θ_pm(T)  [{pm_label},  λ₁ = {lam1_fixed:.4f} μm]", fontsize=9)
 
         self.canvas.fig.tight_layout()
         self.canvas.refresh()
@@ -930,14 +905,48 @@ class _BirefringentPanel(QWidget):
         lam2_scalar = float(np.asarray(lam2v))
         lam3_scalar = float(np.asarray(lam3v))
 
+        self._pm_result = None
+        self.btn_load_sim.setEnabled(False)
+
         if np.isnan(lam2_scalar) or (np.isnan(theta) if np.isscalar(theta) else not np.isfinite(theta)):
             self.lbl_op_l2.setText("λ₂ = —  (check energy conservation / λ range)")
             self.lbl_op_pm.setText("θ_pm = —  (no real solution for this PM type)")
             return
 
         self.lbl_op_l2.setText(f"λ₂ = {lam2_scalar:.4f} μm   (λ₃ = {lam3_scalar:.4f} μm)")
+
+        if process == "SHG" and pm_type[0] != pm_type[1]:
+            self.lbl_op_pm.setText(
+                f"θ_pm = {float(theta):.2f}°   [{pm_type} is Type II — cannot be "
+                f"loaded into a simulation: the pump field would need mixed "
+                f"o+e polarization on a single input]")
+            return
+
         self.lbl_op_pm.setText(
             f"θ_pm = {float(theta):.2f}°   [{calc.sign} uniaxial, {pm_type}]")
+
+        # Engine convention (same as core_py/config_builder.py):
+        #   SHG            : pump = fundamental (lam1), signal = idler = SH (lam3)
+        #   SFG / DFG / OPG: pump = shortest (lam3), signal = lam1, idler = lam2
+        if process == "SHG":
+            lp_eng, ls_eng, li_eng = lam1, lam3_scalar, lam3_scalar
+        else:
+            lp_eng, ls_eng, li_eng = lam3_scalar, lam1, lam2_scalar
+
+        self._pm_result = {
+            "crystal": self.cb_crystal.currentText(), "process": process,
+            "lp": lp_eng, "ls": ls_eng, "li": li_eng, "T": T,
+            "pm_type": pm_type, "theta_deg": float(theta),
+        }
+        self.btn_load_sim.setEnabled(True)
+
+    def _emit_load_to_sim(self):
+        if self._pm_result is None:
+            return
+        r = self._pm_result
+        self.pm_birefringent_found.emit(
+            r["crystal"], r["process"], r["lp"], r["ls"], r["li"], r["T"],
+            r["pm_type"], r["theta_deg"])
 
     # ── Public API ──────────────────────────────────────────────────────
     def refresh_crystals(self):
@@ -954,6 +963,8 @@ class PhaseMatchingTab(QWidget):
 
     # lp_um, ls_um, li_um, T_C, Lambda_um
     pm_wavelengths_found = pyqtSignal(float, float, float, float, float)
+    # crystal, process, lp_um, ls_um, li_um, T_C, pm_type, theta_deg
+    pm_birefringent_found = pyqtSignal(str, str, float, float, float, float, str, float)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -971,6 +982,7 @@ class PhaseMatchingTab(QWidget):
         layout.addWidget(inner_tabs)
 
         self._qpm_panel.pm_wavelengths_found.connect(self.pm_wavelengths_found.emit)
+        self._bi_panel.pm_birefringent_found.connect(self.pm_birefringent_found.emit)
 
     # ── Public API ──────────────────────────────────────────────────────
     def refresh_crystals(self):

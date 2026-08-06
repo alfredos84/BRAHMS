@@ -183,3 +183,78 @@ class SellmeierFormula:
         if not self._ready:
             raise RuntimeError(
                 f"SellmeierFormula '{self.label}' not ready: {self._error}")
+
+
+class MixedExtraordinaryIndex:
+    """
+    Angle-dependent extraordinary index for a uniaxial crystal:
+
+        1/n^e(theta)^2 = cos^2(theta)/n_o^2 + sin^2(theta)/n_e^2
+
+    Implements the same n/dn_dL/.../k/GV/beta1/beta2/beta3 interface as
+    SellmeierFormula so it can be used as a drop-in replacement per field
+    in config_builder.py — but since the mix of two independent Sellmeier
+    formulas isn't itself a single symbolic expression, derivatives here
+    are obtained by central finite differences instead of SymPy.
+    """
+
+    def __init__(self, sf_o: SellmeierFormula, sf_e: SellmeierFormula,
+                 theta_deg: float, dlam: float = 1e-4):
+        self.sf_o = sf_o
+        self.sf_e = sf_e
+        self.theta_deg = theta_deg
+        self._theta = np.deg2rad(theta_deg)
+        self._dlam = dlam
+        self._ready = sf_o.is_ready and sf_e.is_ready
+        self._error = None if self._ready else "underlying o/e formula not ready"
+
+    @property
+    def is_ready(self) -> bool:
+        return self._ready
+
+    @property
+    def error(self) -> str | None:
+        return self._error
+
+    def n(self, L, T=25.0) -> np.ndarray:
+        no = self.sf_o.n(L, T)
+        ne = self.sf_e.n(L, T)
+        return 1.0 / np.sqrt((np.cos(self._theta) / no) ** 2 +
+                             (np.sin(self._theta) / ne) ** 2)
+
+    def dn_dL(self, L, T=25.0) -> np.ndarray:
+        d = self._dlam
+        return (self.n(L + d, T) - self.n(L - d, T)) / (2 * d)
+
+    def d2n_dL2(self, L, T=25.0) -> np.ndarray:
+        d = self._dlam
+        return (self.n(L + d, T) - 2 * self.n(L, T) + self.n(L - d, T)) / d**2
+
+    def d3n_dL3(self, L, T=25.0) -> np.ndarray:
+        d = self._dlam
+        return (self.n(L + 2*d, T) - 2*self.n(L + d, T)
+                + 2*self.n(L - d, T) - self.n(L - 2*d, T)) / (2 * d**3)
+
+    def k(self, L, T=25.0) -> np.ndarray:
+        return 2 * np.pi * self.n(L, T) / np.asarray(L, dtype=float)
+
+    def GV(self, L, T=25.0) -> np.ndarray:
+        L_ = np.asarray(L, dtype=float)
+        return _C / (self.n(L_, T) - L_ * self.dn_dL(L_, T))
+
+    def beta1(self, L, T=25.0) -> np.ndarray:
+        L_ = np.asarray(L, dtype=float)
+        return (self.n(L_, T) - L_ * self.dn_dL(L_, T)) / _C
+
+    def beta2(self, L, T=25.0) -> np.ndarray:
+        L_ = np.asarray(L, dtype=float)
+        return L_**3 * self.d2n_dL2(L_, T) / (2 * np.pi * _C**2)
+
+    def beta3(self, L, T=25.0) -> np.ndarray:
+        L_ = np.asarray(L, dtype=float)
+        d2 = self.d2n_dL2(L_, T)
+        d3 = self.d3n_dL3(L_, T)
+        return -L_**4 / (4 * np.pi**2 * _C**3) * (3*d2 + L_*d3)
+
+    def GVD_fs2_mm(self, L, T=25.0) -> np.ndarray:
+        return self.beta2(L, T) * 1e9

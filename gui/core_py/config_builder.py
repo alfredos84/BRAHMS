@@ -11,10 +11,50 @@ import math
 import numpy as np
 
 from .crystal_db import CrystalDB, get_db
-from .sellmeier import SellmeierFormula
+from .sellmeier import SellmeierFormula, MixedExtraordinaryIndex
 
 
 _C = 299.792_458  # μm/ps
+
+
+def _birefringent_axes(cr: dict, db: CrystalDB, process: str,
+                        pm_type: str, theta_deg: float):
+    """
+    Per-field (pump, signal, idler) SellmeierFormula-like objects for a
+    Birefringent-uniaxial crystal, from the PM-type letters (o/e for waves
+    1, 2, 3 in the Table 2.1 convention — wave 3 is always the shortest
+    wavelength) and the engine's own wavelength-role convention:
+
+        SHG            : pump = fundamental = wave1 = wave2 (degenerate),
+                          signal = idler = SH = wave3.
+        SFG / DFG / OPG: pump = wave3 (shortest), signal = wave1, idler = wave2.
+
+    "o" -> the crystal's pure ordinary-axis formula.
+    "e" -> the angle-mixed extraordinary index at theta_deg (MixedExtraordinaryIndex),
+           NOT the pure e-axis formula — a field polarised along "e" off-axis
+           does not see the pure n_e(lambda).
+    """
+    if len(pm_type) != 3 or any(c not in "oe" for c in pm_type):
+        raise ValueError(f"Invalid PM type '{pm_type}' (expected e.g. 'ooe')")
+
+    sf_o = db.sellmeier(cr, axis="o")
+    sf_e = db.sellmeier(cr, axis="e")
+    if not sf_o.is_ready or not sf_e.is_ready:
+        raise ValueError(
+            f"Crystal '{cr.get('name')}' needs both o- and e-axis Sellmeier "
+            f"formulas for birefringent phase matching")
+
+    def _axis(pol: str):
+        return sf_o if pol == "o" else MixedExtraordinaryIndex(sf_o, sf_e, theta_deg)
+
+    if process == "SHG":
+        if pm_type[0] != pm_type[1]:
+            raise ValueError(
+                f"PM type '{pm_type}' is Type II — cannot be represented by this "
+                f"engine's single-polarisation field model for SHG")
+        return _axis(pm_type[0]), _axis(pm_type[2]), _axis(pm_type[2])
+    else:
+        return _axis(pm_type[2]), _axis(pm_type[0]), _axis(pm_type[1])
 
 
 def _idler_wavelength(lp: float, ls: float) -> float:
@@ -105,28 +145,44 @@ def build_config(params: dict, db: CrystalDB | None = None) -> dict:
     if cr is None:
         raise ValueError(f"Crystal '{crystal_name}' not found in database")
 
-    sf = db.sellmeier(cr, axis="e")
+    is_qpm = cr.get("type", "").startswith("QPM")
+    if is_qpm:
+        sf_p = sf_s = sf_i = db.sellmeier(cr, axis="e")
+    else:
+        # Birefringent-uniaxial: every field's index depends on which axis
+        # (o, or the angle-mixed e) it propagates on for the chosen PM type —
+        # never just the pure e-axis formula. There is no grating, so the
+        # QPM K-vector term is dropped (Lambda_um forced to 0 below).
+        pm_type   = params.get("pm_type")
+        theta_deg = params.get("theta_deg")
+        if not pm_type or theta_deg is None:
+            raise ValueError(
+                f"Crystal '{crystal_name}' is birefringent-uniaxial: 'pm_type' "
+                f"and 'theta_deg' are required (set via the Phase Matching → "
+                f"Birefringent tab's 'Load into Simulation')")
+        sf_p, sf_s, sf_i = _birefringent_axes(cr, db, process, pm_type, theta_deg)
+        Lambda_um = 0.0
 
-    np_val  = float(sf.n(pump_um,   T_C))
-    ns_val  = float(sf.n(signal_um, T_C))
-    ni_val  = float(sf.n(idler_um,  T_C))
+    np_val  = float(sf_p.n(pump_um,   T_C))
+    ns_val  = float(sf_s.n(signal_um, T_C))
+    ni_val  = float(sf_i.n(idler_um,  T_C))
 
-    vp = float(sf.GV(pump_um,   T_C))
-    vs = float(sf.GV(signal_um, T_C))
-    vi = float(sf.GV(idler_um,  T_C))
+    vp = float(sf_p.GV(pump_um,   T_C))
+    vs = float(sf_s.GV(signal_um, T_C))
+    vi = float(sf_i.GV(idler_um,  T_C))
 
-    b2p = float(sf.beta2(pump_um,   T_C))
-    b2s = float(sf.beta2(signal_um, T_C))
-    b2i = float(sf.beta2(idler_um,  T_C))
+    b2p = float(sf_p.beta2(pump_um,   T_C))
+    b2s = float(sf_s.beta2(signal_um, T_C))
+    b2i = float(sf_i.beta2(idler_um,  T_C))
 
-    b3p = float(sf.beta3(pump_um,   T_C))
-    b3s = float(sf.beta3(signal_um, T_C))
-    b3i = float(sf.beta3(idler_um,  T_C))
+    b3p = float(sf_p.beta3(pump_um,   T_C))
+    b3s = float(sf_s.beta3(signal_um, T_C))
+    b3i = float(sf_i.beta3(idler_um,  T_C))
 
     # ── Phase mismatch ─────────────────────────────────────────────────────────
-    kp = float(sf.k(pump_um,   T_C))
-    ks = float(sf.k(signal_um, T_C))
-    ki = float(sf.k(idler_um,  T_C))
+    kp = float(sf_p.k(pump_um,   T_C))
+    ks = float(sf_s.k(signal_um, T_C))
+    ki = float(sf_i.k(idler_um,  T_C))
 
     if process == "SHG":
         # Δk = k_SH − 2·k_fund − 2π/Λ
@@ -186,53 +242,61 @@ def build_config(params: dict, db: CrystalDB | None = None) -> dict:
         t_window = max(10.0 * fwhm_ps, 1.0) if _pulsed else 1.0
 
     # ── Assemble JSON ──────────────────────────────────────────────────────────
-    cfg = {
-        "crystal": {
-            "name": crystal_name,
-            "type": "QPM",
-            "geometry": {
-                "Lcr_mm": Lcr_mm,
-                "LX_mm":  LX_mm,
-                "LY_mm":  LY_mm,
-            },
-            "process":    process,
-            "degenerate": degenerate,
-            "wavelengths": {
-                "pump_um":   pump_um,
-                "signal_um": signal_um,
-                "idler_um":  idler_um,
-                "dk_um-1":   dk,
-            },
-            "optics": {
-                "np": np_val, "ns": ns_val, "ni": ni_val,
-                "vp_um_ps":  vp,  "vs_um_ps":  vs,  "vi_um_ps":  vi,
-                "b2p_ps2_um": b2p, "b2s_ps2_um": b2s, "b2i_ps2_um": b2i,
-                "b3p_ps3_um": b3p, "b3s_ps3_um": b3s, "b3i_ps3_um": b3i,
-            },
-            "nonlinear": {
-                # Only deff stored in database; dQ = 2×deff/π for QPM is applied in C++ code
-                "deff_pm_V": float(cr["deff"]),
-                "alpha_crp_cm-1": float(cr["alpha_p"]) if params.get("alpha_p_active", True) else 0.0,
-                "alpha_crs_cm-1": float(cr["alpha_s"]) if params.get("alpha_s_active", True) else 0.0,
-                "alpha_cri_cm-1": float(cr["alpha_i"]) if params.get("alpha_i_active", True) else 0.0,
-                "beta_crp_um_W":  float(cr.get("beta_p", 0.0)) if params.get("beta_p_active", False) else 0.0,
-                "beta_crs_um_W":  float(cr.get("beta_s", 0.0)) if params.get("beta_s_active", False) else 0.0,
-                "beta_cri_um_W":  float(cr.get("beta_i", 0.0)) if params.get("beta_i_active", False) else 0.0,
-                "rho_p_rad":      float(cr.get("rho_p", 0.0)) if params.get("rho_p_active", False) else 0.0,
-                "rho_s_rad":      float(cr.get("rho_s", 0.0)) if params.get("rho_s_active", False) else 0.0,
-                "rho_i_rad":      float(cr.get("rho_i", 0.0)) if params.get("rho_i_active", False) else 0.0,
-            },
-            "qpm": {
-                "lambda0_um":   Lambda_um,
-                "T0_C":         T_C,
-                "alpha_th_K-1": float(cr["alpha_th"]),
-            },
-            "thermal_props": {
-                "kappa_W_mK": float(cr["kappa"]),
-                "cp_J_kgK":   float(cr["cp"]),
-                "rho_kg_m3":  float(cr["rho"]),
-            },
+    crystal_cfg = {
+        "name": crystal_name,
+        "type": cr.get("type", "QPM-PPLN"),
+        "geometry": {
+            "Lcr_mm": Lcr_mm,
+            "LX_mm":  LX_mm,
+            "LY_mm":  LY_mm,
         },
+        "process":    process,
+        "degenerate": degenerate,
+        "wavelengths": {
+            "pump_um":   pump_um,
+            "signal_um": signal_um,
+            "idler_um":  idler_um,
+            "dk_um-1":   dk,
+        },
+        "optics": {
+            "np": np_val, "ns": ns_val, "ni": ni_val,
+            "vp_um_ps":  vp,  "vs_um_ps":  vs,  "vi_um_ps":  vi,
+            "b2p_ps2_um": b2p, "b2s_ps2_um": b2s, "b2i_ps2_um": b2i,
+            "b3p_ps3_um": b3p, "b3s_ps3_um": b3s, "b3i_ps3_um": b3i,
+        },
+        "nonlinear": {
+            # Only deff stored in database; dQ = 2×deff/π for QPM is applied
+            # in C++ code, gated on the presence of the "qpm" key below —
+            # birefringent crystals use deff as-is (no duty-cycle factor).
+            "deff_pm_V": float(cr["deff"]),
+            "alpha_crp_cm-1": float(cr["alpha_p"]) if params.get("alpha_p_active", True) else 0.0,
+            "alpha_crs_cm-1": float(cr["alpha_s"]) if params.get("alpha_s_active", True) else 0.0,
+            "alpha_cri_cm-1": float(cr["alpha_i"]) if params.get("alpha_i_active", True) else 0.0,
+            "beta_crp_um_W":  float(cr.get("beta_p", 0.0)) if params.get("beta_p_active", False) else 0.0,
+            "beta_crs_um_W":  float(cr.get("beta_s", 0.0)) if params.get("beta_s_active", False) else 0.0,
+            "beta_cri_um_W":  float(cr.get("beta_i", 0.0)) if params.get("beta_i_active", False) else 0.0,
+            "rho_p_rad":      float(cr.get("rho_p", 0.0)) if params.get("rho_p_active", False) else 0.0,
+            "rho_s_rad":      float(cr.get("rho_s", 0.0)) if params.get("rho_s_active", False) else 0.0,
+            "rho_i_rad":      float(cr.get("rho_i", 0.0)) if params.get("rho_i_active", False) else 0.0,
+        },
+        "thermal_props": {
+            "kappa_W_mK": float(cr["kappa"]),
+            "cp_J_kgK":   float(cr["cp"]),
+            "rho_kg_m3":  float(cr["rho"]),
+        },
+    }
+    if is_qpm:
+        # Presence of this key is what makes the C++ engine apply the QPM
+        # duty-cycle dQ correction and the grating thermal-expansion term —
+        # omitted entirely for birefringent crystals (no periodic domains).
+        crystal_cfg["qpm"] = {
+            "lambda0_um":   Lambda_um,
+            "T0_C":         T_C,
+            "alpha_th_K-1": float(cr["alpha_th"]),
+        }
+
+    cfg = {
+        "crystal": crystal_cfg,
         "fields": {
             "pump": {
                 "power_W":        float(params["pump"]["power_W"]),

@@ -83,6 +83,7 @@ class MainWindow(QMainWindow):
 
         # Phase-matching → Simulation Parameters (and Full Simulation)
         self.pm_tab.pm_wavelengths_found.connect(self._on_pm_wavelengths_found)
+        self.pm_tab.pm_birefringent_found.connect(self._on_pm_birefringent_found)
 
         # Engine runner (persistent — keeps track of compiled grid)
         _project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -224,6 +225,15 @@ class MainWindow(QMainWindow):
         self.single_sim_tabs.setCurrentWidget(self.sim_tab)
         self.lbl_status.setText(
             f"PM loaded: λ_p={lp:.4f} μm  λ_s={ls:.4f} μm  λ_i={li:.4f} μm  T={T:.1f} °C")
+
+    def _on_pm_birefringent_found(self, crystal: str, process: str, lp: float, ls: float,
+                                   li: float, T: float, pm_type: str, theta_deg: float):
+        self.sim_tab.load_pm_birefringent(crystal, process, lp, ls, li, T, pm_type, theta_deg)
+        self.tabs.setCurrentWidget(self.single_sim_tabs)
+        self.single_sim_tabs.setCurrentWidget(self.sim_tab)
+        self.lbl_status.setText(
+            f"Birefringent PM loaded: {crystal}  {pm_type}  θ={theta_deg:.2f}°  "
+            f"λ_p={lp:.4f} μm  λ_s={ls:.4f} μm  λ_i={li:.4f} μm  T={T:.1f} °C")
 
     def _stop(self):
         self._runner.stop()
