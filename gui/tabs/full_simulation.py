@@ -196,7 +196,7 @@ class FullSimulationTab(QWidget):
 
         g.addWidget(QLabel("Material"), 0, 0)
         self.cb_crystal = QComboBox()
-        self.cb_crystal.addItems(["MgO:PPLN", "PPLN", "MgO:sPPLT", "ZGP"])
+        self.cb_crystal.addItems(["MgO:PPLN", "MgO:sPPLT", "ZGP"])
         g.addWidget(self.cb_crystal, 0, 1)
 
         g.addWidget(QLabel("Length L (mm)"), 1, 0)

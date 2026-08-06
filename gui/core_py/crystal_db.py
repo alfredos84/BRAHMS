@@ -23,10 +23,11 @@ from .sellmeier import SellmeierFormula
 _DEFAULT_DB = Path(__file__).parent.parent.parent / "crystals" / "crystals.db"
 
 # ── Preloaded crystal data ─────────────────────────────────────────────
-# All Sellmeier equations: Gayer et al., Appl. Phys. B 91, 343-348 (2008)
-# for MgO:PPLN / PPLN / MgO:sPPLT.
+# MgO:PPLN: Gayer et al., Appl. Phys. B 91, 343-348 (2008) — LiNbO3 (niobate).
+# MgO:sPPLT: Bruner et al., Opt. Lett. 28, 194-196 (2003) — LiTaO3 (tantalate);
+#   NOT the same paper/formula as MgO:PPLN (different host crystal entirely).
 # ZGP: Zelmon et al., JOSAB 18, 1332 (2001).
-# Temperature factor for LN/LT family: f = (T-24.5)*(T+570.82), T in °C.
+# Temperature factor for the LiNbO3/Gayer family: f = (T-24.5)*(T+570.82), T in °C.
 
 _LN_FORMULA = (
     "sqrt("
@@ -35,6 +36,17 @@ _LN_FORMULA = (
     "(L**2 - (A3 + B3*(T - 24.5)*(T + 570.82))**2) + "
     "(A4 + B4*(T - 24.5)*(T + 570.82)) / (L**2 - A5**2) - "
     "A6*L**2)"
+)
+
+# Bruner et al. (2003), Eq. (5): n_e^2(L,T) = A + (B+b(T))/(L^2-(C+c(T))^2)
+#   + E/(L^2-F^2) + G/(L^2-H^2) + D*L^2, with b(T)=BT*(T+273.15)^2 and
+#   c(T)=CT*(T+273.15)^2 (T in °C; note the extra pole at H, absent from
+#   the Gayer/LiNbO3 formula above — a different functional form, not just
+#   different coefficients).
+_SLT_FORMULA = (
+    "sqrt(A + (B + BT*(T + 273.15)**2) / "
+    "(L**2 - (C + CT*(T + 273.15)**2)**2) + "
+    "E/(L**2 - F**2) + G/(L**2 - H**2) + D*L**2)"
 )
 
 _ZGP_FORMULA_E = "sqrt(A + B*L**2/(L**2 - C) + D*L**2/(L**2 - E))"
@@ -67,62 +79,51 @@ PRELOADED: list[dict] = [
         "lambda0":    6.99,        # μm  grating period at T0
         "T0":         27.0,        # °C  reference temperature
         "reference":  "Gayer et al., Appl. Phys. B 91, 343 (2008)",
+        "reference_bibtex": (
+            "@article{Gayer2008, author={Gayer, O. and Sacks, Z. and "
+            "Galun, E. and Arie, A.}, title={Temperature and wavelength "
+            "dependent refractive index equations for MgO-doped congruent "
+            "and stoichiometric LiNbO3}, journal={Applied Physics B}, "
+            "volume={91}, pages={343--348}, year={2008}}"
+        ),
         "preloaded":  1,
     },
-    # ── PPLN (congruent LiNbO3) ────────────────────────────────────────
-    {
-        "name":       "PPLN",
-        "type":       "QPM-PPLN",
-        "lambda_min": 0.4,
-        "lambda_max": 5.0,
-        "deff":       25.0,        # pm/V  (dQ = 2×deff/π is applied for QPM in code)
-        "alpha_p":    0.02,
-        "alpha_s":    0.002,
-        "alpha_i":    0.002,
-        "formula_e":  _LN_FORMULA,
-        "formula_o":  "",
-        "coeffs_e":   json.dumps({
-            "A1": 5.35583,   "A2": 0.100473,  "A3": 0.20692,
-            "A4": 100.0,     "A5": 11.34927,  "A6": 0.015334,
-            "B1": 4.629e-6,  "B2": 1.1685e-7,
-            "B3": 3.9046e-8, "B4": 1.6762e-4,
-        }),
-        "coeffs_o":   "{}",
-        "kappa":      4.6,
-        "alpha_th":   14.8e-6,
-        "cp":         628.0,
-        "rho":        4640.0,
-        "lambda0":    19.0,
-        "T0":         27.0,
-        "reference":  "Gayer et al., Appl. Phys. B 91, 343 (2008)",
-        "preloaded":  1,
-    },
-    # ── MgO:sPPLT ─────────────────────────────────────────────────────
+    # ── MgO:sPPLT (stoichiometric, MgO-doped periodically-poled LiTaO3) ─
+    # Formula/coefficients from Bruner et al. (2003) — a different host
+    # crystal (lithium TANTALATE) from MgO:PPLN (lithium NIOBATE) above,
+    # with its own Sellmeier form (_SLT_FORMULA, 3 poles vs. 2).
     {
         "name":       "MgO:sPPLT",
         "type":       "QPM-PPLN",
-        "lambda_min": 0.3,
-        "lambda_max": 4.5,
+        "lambda_min": 0.39,
+        "lambda_max": 4.1,
         "deff":       13.7,        # pm/V  (dQ = 2×deff/π is applied for QPM in code)
         "alpha_p":    0.021,
         "alpha_s":    0.002,
         "alpha_i":    0.002,
-        "formula_e":  _LN_FORMULA,
+        "formula_e":  _SLT_FORMULA,
         "formula_o":  "",
         "coeffs_e":   json.dumps({
-            "A1": 5.113,     "A2": 0.0996,    "A3": 0.2102,
-            "A4": 189.69,    "A5": 12.48,     "A6": 0.0132,
-            "B1": 2.767e-6,  "B2": 3.728e-8,
-            "B3": 5.290e-8,  "B4": 1.275e-4,
+            "A": 4.502483, "B": 0.007294, "C": 0.185087, "D": -0.02357,
+            "E": 0.073423, "F": 0.199595, "G": 0.001,     "H": 7.99724,
+            "BT": 3.483933e-8, "CT": 1.607839e-8,
         }),
         "coeffs_o":   "{}",
         "kappa":      4.6,
-        "alpha_th":   16.0e-6,
+        "alpha_th":   16.0e-6,     # Bruner et al. explicitly borrow the CLT value (no SLT data available)
         "cp":         628.0,
         "rho":        7450.0,
         "lambda0":    7.57,
         "T0":         27.0,
-        "reference":  "Gayer et al., Appl. Phys. B 91, 343 (2008)",
+        "reference":  "Bruner et al., Opt. Lett. 28, 194 (2003)",
+        "reference_bibtex": (
+            "@article{Bruner2003, author={Bruner, Ariel and Eger, David "
+            "and Oron, Moshe B. and Blau, Pinhas and Katz, Moti and "
+            "Ruschin, Shlomo}, title={Temperature-dependent Sellmeier "
+            "equation for the refractive index of stoichiometric lithium "
+            "tantalate}, journal={Optics Letters}, volume={28}, "
+            "pages={194--196}, year={2003}}"
+        ),
         "preloaded":  1,
     },
     # ── ZGP (ZnGeP2)  birefringent ────────────────────────────────────
@@ -204,6 +205,7 @@ class CrystalDB:
         self._conn.commit()
         self._migrate()
         self._seed_preloaded()
+        self._repair_preloaded()
 
     # ------------------------------------------------------------------
     # Schema migration (add columns introduced in later versions)
@@ -236,6 +238,40 @@ class CrystalDB:
             ).fetchone()
             if not exists:
                 self._insert(cr)
+
+    def _repair_preloaded(self):
+        """Keep already-seeded preloaded rows in sync with PRELOADED.
+
+        _seed_preloaded() only inserts crystals that don't exist yet, so a
+        row seeded by an older version of this file (e.g. before a wrong
+        Sellmeier formula/citation was fixed here) would otherwise never
+        pick up the correction. Safe to overwrite unconditionally: the GUI
+        refuses to save user edits to preloaded=1 rows (they're read-only,
+        see CrystalsTab._on_save), so there is no user data to lose here.
+        Also drops any preloaded row no longer present in PRELOADED
+        (e.g. plain "PPLN", removed in favor of MgO:PPLN).
+        """
+        current_names = {cr["name"] for cr in PRELOADED}
+        stale = self._conn.execute(
+            "SELECT name FROM crystals WHERE preloaded=1"
+        ).fetchall()
+        for row in stale:
+            if row["name"] not in current_names:
+                self._conn.execute(
+                    "DELETE FROM crystals WHERE name=? AND preloaded=1",
+                    (row["name"],))
+        for cr in PRELOADED:
+            d = dict(cr)
+            name = d.pop("name")
+            d["coeffs_e"] = json.dumps(d.get("coeffs_e", {})) \
+                if isinstance(d.get("coeffs_e"), dict) else d.get("coeffs_e", "{}")
+            d["coeffs_o"] = json.dumps(d.get("coeffs_o", {})) \
+                if isinstance(d.get("coeffs_o"), dict) else d.get("coeffs_o", "{}")
+            sets = ", ".join(f"{k}=?" for k in d)
+            self._conn.execute(
+                f"UPDATE crystals SET {sets} WHERE name=? AND preloaded=1",
+                list(d.values()) + [name])
+        self._conn.commit()
 
     def _insert(self, d: dict):
         cols = ", ".join(d.keys())
