@@ -277,7 +277,7 @@ class FullSimulationTab(QWidget):
         for col, sb in enumerate([self.sb_blkx, self.sb_blky, self.sb_blkt]):
             g.addWidget(sb, 5, col)
 
-        lbl_cpu = QLabel("Only for CPU (OpenMP) kernels:")
+        lbl_cpu = QLabel("Only for CPU (OpenMP) backend:")
         lbl_cpu.setObjectName("unitLabel")
         g.addWidget(lbl_cpu, 6, 0, 1, 4)
         g.addWidget(QLabel("Threads"), 7, 0)
