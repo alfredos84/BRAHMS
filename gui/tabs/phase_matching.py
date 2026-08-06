@@ -210,7 +210,6 @@ class _PMWorker(QObject):
                  lp_fix: float, T_fix: float, Lambda_fix: float,
                  T_arr: np.ndarray,
                  Lambda_arr: np.ndarray,
-                 lp_arr: np.ndarray,
                  pol_p: str = "e", pol_s: str = "e", pol_i: str = "e",
                  lam_min: float = 0.3, lam_max: float = 5.0):
         super().__init__()
@@ -221,7 +220,6 @@ class _PMWorker(QObject):
         self._Lambda_fix = Lambda_fix
         self._T_arr      = T_arr
         self._Lambda_arr = Lambda_arr
-        self._lp_arr     = lp_arr
         self._pol_p      = pol_p
         self._pol_s      = pol_s
         self._pol_i      = pol_i
@@ -241,8 +239,6 @@ class _PMWorker(QObject):
             li_T  = np.full(len(self._T_arr),      np.nan)
             ls_L  = np.full(len(self._Lambda_arr), np.nan)
             li_L  = np.full(len(self._Lambda_arr), np.nan)
-            ls_lp = np.full(len(self._lp_arr),     np.nan)
-            li_lp = np.full(len(self._lp_arr),     np.nan)
 
             if process == "SHG":
                 # ── SHG sweeps ────────────────────────────────────────────────
@@ -259,11 +255,6 @@ class _PMWorker(QObject):
                     ls_L[i], li_L[i] = _shg_find_pm_fund(
                         calc, T_fix, Lam, lp_fix, pp, ps)
 
-                # Sweep 3 (vs λ_fund): energy conservation only — λ_SH = λ_fund/2
-                # (This is the SHG tuning curve; PM is only at one specific λ_fund)
-                ls_lp = self._lp_arr / 2.0
-                li_lp = ls_lp.copy()
-
             else:
                 # ── OPG / DFG / SFG sweeps ────────────────────────────────────
                 # Convention: Δk = k(λ_p, pp) − k(λ_s, ps) − k(λ_i, pi) − 2π/Λ = 0
@@ -275,17 +266,12 @@ class _PMWorker(QObject):
                 for i, Lam in enumerate(self._Lambda_arr):
                     ls_L[i], li_L[i] = _pm_find_pair_opg(
                         calc, lp_fix, T_fix, Lam, pp, ps, pi_, mn, mx)
-                for i, lp in enumerate(self._lp_arr):
-                    ls_lp[i], li_lp[i] = _pm_find_pair_opg(
-                        calc, lp, T_fix, L_fix, pp, ps, pi_, mn, mx)
 
             self.done.emit({
                 "T_arr":    self._T_arr,
                 "ls_vs_T":  ls_T,  "li_vs_T":  li_T,
                 "L_arr":    self._Lambda_arr,
                 "ls_vs_L":  ls_L,  "li_vs_L":  li_L,
-                "lp_arr":   self._lp_arr,
-                "ls_vs_lp": ls_lp, "li_vs_lp": li_lp,
                 "lp_fix":   lp_fix, "T_fix": T_fix, "L_fix": L_fix,
                 "process":  process,
             })
@@ -423,8 +409,6 @@ class PhaseMatchingTab(QWidget):
                    rmin=-273, rmax=1000)
         _add_range(4,  "Λ scan (μm)",    "sb_Lmin",  "sb_Lmax",  "sb_LN",    5.0,  12.0, 100, 3,
                    rmin=0.001, rmax=1000)
-        _add_range(8,  "λ_p scan (μm)",  "sb_lpmin", "sb_lpmax", "sb_lpN",   0.9,   1.2, 100, 4,
-                   rmin=0.001, rmax=100)
         lv.addWidget(gb_sc)
 
         self.lbl_status = QLabel("")
@@ -440,8 +424,8 @@ class PhaseMatchingTab(QWidget):
         scroll.setWidget(left)
         splitter.addWidget(scroll)
 
-        # ── RIGHT: 3 plots  (1 row × 3 cols) ───────────────────────────
-        self.canvas = PlotCanvas(nrows=1, ncols=3, figsize=(14, 5), dpi=95)
+        # ── RIGHT: 2 plots  (1 row × 2 cols) ───────────────────────────
+        self.canvas = PlotCanvas(nrows=1, ncols=2, figsize=(14, 5), dpi=95)
         splitter.addWidget(self.canvas)
         splitter.setStretchFactor(0, 0)
         splitter.setStretchFactor(1, 1)
@@ -477,7 +461,6 @@ class PhaseMatchingTab(QWidget):
         titles = [
             ("T  (°C)",  "λ  (μm)", "λ_s , λ_i  vs  Temperature"),
             ("Λ  (μm)",  "λ  (μm)", "λ_s , λ_i  vs  Grating period"),
-            ("λ_p  (μm)", "λ  (μm)", "λ_s , λ_i  vs  Pump wavelength"),
         ]
         for i, (xl, yl, tl) in enumerate(titles):
             ax = self.canvas.get_ax(i)
@@ -541,7 +524,6 @@ class PhaseMatchingTab(QWidget):
             L_fix = 0.0
         T_arr    = np.linspace(self.sb_Tmin.value(),  self.sb_Tmax.value(),  int(self.sb_TN.value()))
         L_arr    = np.linspace(self.sb_Lmin.value(),  self.sb_Lmax.value(),  int(self.sb_LN.value()))
-        lp_arr   = np.linspace(self.sb_lpmin.value(), self.sb_lpmax.value(), int(self.sb_lpN.value()))
 
         self.btn_calc.setEnabled(False)
         self.lbl_status.setText("Computing…")
@@ -549,7 +531,7 @@ class PhaseMatchingTab(QWidget):
         lam_min = (cr or {}).get("lambda_min", 0.3)
         lam_max = (cr or {}).get("lambda_max", 5.0)
         self._worker = _PMWorker(calc, process, lp_fix, T_fix, L_fix,
-                                 T_arr, L_arr, lp_arr, pol_p, pol_s, pol_i,
+                                 T_arr, L_arr, pol_p, pol_s, pol_i,
                                  lam_min, lam_max)
         self._thread = QThread()
         self._worker.moveToThread(self._thread)
@@ -597,10 +579,6 @@ class PhaseMatchingTab(QWidget):
                        res["L_arr"],  res["ls_vs_L"],  res["li_vs_L"],
                        "Λ  (μm)",
                        f"λ_SH(Λ)  [T = {T:.1f} °C,  λ_fund hint = {lp:.4f} μm]")
-            _plot_pair(self.canvas.get_ax(2),
-                       res["lp_arr"], res["ls_vs_lp"], res["li_vs_lp"],
-                       "λ_fund  (μm)",
-                       f"λ_SH = λ_fund/2  [T = {T:.1f} °C,  Λ = {L:.3f} μm]")
         else:
             _plot_pair(self.canvas.get_ax(0),
                        res["T_arr"],  res["ls_vs_T"],  res["li_vs_T"],
@@ -610,10 +588,6 @@ class PhaseMatchingTab(QWidget):
                        res["L_arr"],  res["ls_vs_L"],  res["li_vs_L"],
                        "Λ  (μm)",
                        f"λ_s , λ_i  vs  Λ    [λ_p = {lp:.4f} μm,  T = {T:.1f} °C]")
-            _plot_pair(self.canvas.get_ax(2),
-                       res["lp_arr"], res["ls_vs_lp"], res["li_vs_lp"],
-                       "λ_p  (μm)",
-                       f"λ_s , λ_i  vs  λ_p    [T = {T:.1f} °C,  Λ = {L:.3f} μm]")
 
         self.canvas.fig.tight_layout()
         self.canvas.refresh()
