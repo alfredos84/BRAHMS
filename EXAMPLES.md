@@ -14,6 +14,23 @@ grating period for QPM crystals, etc.). Common crystals (e.g., MgO:PPLN,
 MgO:sPPLT, PPLN, ZGP) are pre-loaded with literature Sellmeier
 coefficients; you can add, edit, or remove custom crystals here.
 
+**Properties.** The crystal library on the left is fully customizable —
+add, edit, save, or delete entries. For the selected crystal, set its
+physical properties (absorption, two-photon absorption, thermal
+conductivity, grating period, etc.), and use the checkboxes to enable or
+disable specific effects (linear/nonlinear absorption, spatial walk-off)
+for the simulation. Click **Set changes** after editing to apply them
+before running a simulation.
+
+![Nonlinear Crystals — Properties tab](./figures/Ex_TAB_NLC_RefIdx1.png)
+
+**Refractive Index.** Type the crystal's Sellmeier equation(s) using
+standard Python/SymPy syntax, set the named coefficients, and preview the
+resulting refractive index $n(\lambda)$, group velocity $v_g(\lambda)$,
+and group-velocity dispersion GVD($\lambda$) at a given temperature.
+
+![Nonlinear Crystals — Refractive Index tab](./figures/Ex_TAB_NLC_RefIdx2.png)
+
 ## 2. Phase Matching
 
 Given the selected crystal and a set of experimental parameters (pump
