@@ -52,6 +52,14 @@ _SLT_FORMULA = (
 _ZGP_FORMULA_E = "sqrt(A + B*L**2/(L**2 - C) + D*L**2/(L**2 - E))"
 _ZGP_FORMULA_O = "sqrt(A + B*L**2/(L**2 - C) + D*L**2/(L**2 - E))"
 
+# BBO (beta-BaB2O4): Kato, IEEE J. Quantum Electron. 22, 1013 (1986) —
+# Sellmeier fit at T=20 C (no T term in the sqrt; no T-dependence is
+# reported for the dispersion fit itself). A linear thermo-optic
+# correction dn/dT (also Kato 1986, valid 0.4-1.0 um only) is added
+# outside the sqrt so the formula stays usable at T != 20 C.
+_BBO_FORMULA_O = "sqrt(A + B/(L**2 - C) - D*L**2) + dndT*(T - 20)"
+_BBO_FORMULA_E = "sqrt(A + B/(L**2 - C) - D*L**2) + dndT*(T - 20)"
+
 PRELOADED: list[dict] = [
     # ── MgO:PPLN ──────────────────────────────────────────────────────
     {
@@ -153,6 +161,51 @@ PRELOADED: list[dict] = [
         "lambda0":    0.0,         # no QPM
         "T0":         25.0,
         "reference":  "Zelmon et al., JOSAB 18, 1332 (2001)",
+        "preloaded":  1,
+    },
+    # ── BBO (beta-BaB2O4)  negative uniaxial birefringent ─────────────
+    # Sellmeier + dn/dT: Kato, IEEE J. Quantum Electron. 22, 1013 (1986).
+    # deff left at 0.0 on purpose: d_ooe/d_eoe for BBO depend on the cut
+    # angle (theta, phi) via d_ooe = d31*sin(theta) - d22*sin(3*phi)*cos(theta),
+    # d_eoe = d22*cos(theta)^2*cos(3*phi), with d22 = +-2.3 pm/V and
+    # d31 = -+0.16 pm/V at 1.0642 um (Kato 1986). The user must set the
+    # deff value appropriate to their phase-matching angle/configuration
+    # via "Set changes" in the Properties tab.
+    # Other fields not covered by Kato 1986 (cp, alpha_th, alpha at 1064 nm)
+    # use typical literature values, NOT verified against this reference.
+    {
+        "name":       "BBO",
+        "type":       "Birefringent-uniaxial",
+        "lambda_min": 0.189,
+        "lambda_max": 3.5,
+        "deff":       0.0,         # pm/V — user must set (see note above)
+        "alpha_p":    1.0e-4,      # cm⁻¹  estimated (not in Kato 1986)
+        "alpha_s":    0.01,        # cm⁻¹  at 0.532 um (Kato 1986)
+        "alpha_i":    0.01,
+        "formula_e":  _BBO_FORMULA_E,
+        "formula_o":  _BBO_FORMULA_O,
+        "coeffs_e":   json.dumps({
+            "A": 2.3753, "B": 0.01224, "C": 0.01667, "D": 0.01516,
+            "dndT": -9.3e-6,
+        }),
+        "coeffs_o":   json.dumps({
+            "A": 2.7359, "B": 0.01878, "C": 0.01822, "D": 0.01354,
+            "dndT": -16.6e-6,
+        }),
+        "kappa":      1.2,         # W/(m·K)  literature typical, not from Kato 1986
+        "alpha_th":   4.0e-6,      # K⁻¹  literature typical; inert for birefringent PM (Lambda=0)
+        "cp":         490.0,       # J/(kg·K)  literature typical, not from Kato 1986
+        "rho":        3850.0,      # kg/m³  (Kato 1986)
+        "lambda0":    0.0,         # no QPM
+        "T0":         20.0,        # °C  — reference T of the Sellmeier fit
+        "reference":  "Kato, IEEE J. Quantum Electron. 22, 1013 (1986)",
+        "reference_bibtex": (
+            "@article{Kato1986, author={Kato, Kiyoshi}, "
+            "title={Second-harmonic generation to 2048 {\\AA} in "
+            "$\\beta$-{BaB}$_2$O$_4$}, "
+            "journal={IEEE Journal of Quantum Electronics}, "
+            "volume={22}, pages={1013--1014}, year={1986}}"
+        ),
         "preloaded":  1,
     },
 ]

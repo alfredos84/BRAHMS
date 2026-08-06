@@ -13,6 +13,7 @@ from ..core_py.sellmeier  import SellmeierFormula
 from ..core_py.bibtex_utils import bibtex_to_citation
 
 import numpy as np
+import matplotlib.pyplot as plt
 
 
 # ── Background worker: parses formula + computes curves ───────────────
@@ -396,6 +397,7 @@ class CrystalsTab(QWidget):
         self._current = None   # dict of currently selected crystal
         self._worker_thread    = None
         self._pm_worker_thread = None
+        self._n_curves: list[dict] = []   # overlayed n(λ) curves (θ-mixed mode)
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(8, 8, 8, 8)
@@ -452,7 +454,8 @@ class CrystalsTab(QWidget):
         self.btn_add.clicked.connect(self._on_add)
         self.btn_edit.clicked.connect(self._on_save)
         self.btn_delete.clicked.connect(self._on_delete)
-        self.btn_plot_n.clicked.connect(self._plot_refractive_index)
+        self.btn_plot_n.clicked.connect(self._on_plot_n_clicked)
+        self.btn_clear_curves.clicked.connect(self._on_clear_curves)
         self.btn_set_changes.clicked.connect(self._on_set_changes)
         self.btn_set_defaults.clicked.connect(self._on_set_default_values)
 
@@ -555,8 +558,15 @@ class CrystalsTab(QWidget):
                 setattr(self, chk_name, chk)
                 g.addWidget(chk, row, 2)
 
+        # ── Derived: uniaxial sign (computed from n_o vs n_e, not stored) ─
+        sign_row = len(all_fields)
+        g.addWidget(QLabel("Uniaxial sign"), sign_row, 0)
+        self.lbl_uniaxial_sign = QLabel("")
+        self.lbl_uniaxial_sign.setObjectName("unitLabel")
+        g.addWidget(self.lbl_uniaxial_sign, sign_row, 1, 1, 2)
+
         # ── Reference (BibTeX input → auto-generated short citation) ────
-        bib_row = len(all_fields)
+        bib_row = sign_row + 1
         g.addWidget(QLabel("Reference (BibTeX)"), bib_row, 0,
                     Qt.AlignmentFlag.AlignTop)
         self.te_bibtex = QPlainTextEdit()
@@ -680,6 +690,28 @@ class CrystalsTab(QWidget):
         T_row.addWidget(self.btn_plot_n)
         T_row.addStretch()
         v.addLayout(T_row)
+
+        # ── Uniaxial angle-dependent n^e(θ) preview ─────────────────────
+        # 1/n^e(θ)² = cos²θ/n_o² + sin²θ/n_e²  (birefringent-uniaxial only,
+        # needs both the o- and e-axis formulas already on file for this
+        # crystal). Each "Plot" click while this is checked overlays a new
+        # curve at the chosen angle, so different angles can be compared.
+        theta_row = QHBoxLayout()
+        self.chk_theta_mixed = QCheckBox("n^e(θ) mixed axis")
+        self.chk_theta_mixed.setToolTip(
+            "Plot the angle-dependent extraordinary index instead of a "
+            "pure o/e axis. Requires both formulas defined (Birefringent-"
+            "uniaxial crystals).")
+        theta_row.addWidget(self.chk_theta_mixed)
+        theta_row.addWidget(QLabel("θ (deg):"))
+        self.sb_theta = QDoubleSpinBox()
+        self.sb_theta.setRange(0.0, 90.0); self.sb_theta.setDecimals(2)
+        self.sb_theta.setValue(0.0)
+        theta_row.addWidget(self.sb_theta)
+        self.btn_clear_curves = QPushButton("Clear curves")
+        theta_row.addWidget(self.btn_clear_curves)
+        theta_row.addStretch()
+        v.addLayout(theta_row)
 
         self.lbl_n_status = QLabel("")
         self.lbl_n_status.setObjectName("unitLabel")
@@ -1096,7 +1128,35 @@ class CrystalsTab(QWidget):
         self.sb_lambda0.setValue(cr.get("lambda0", 0.0))
         self.sb_T0.setValue(cr.get("T0", 27.0))
 
+        self._update_uniaxial_sign(cr)
         self._load_axis("e")
+
+    def _update_uniaxial_sign(self, cr: dict):
+        """Show whether the crystal is negative/positive uniaxial, derived
+        from n_o vs n_e at the crystal's own reference temperature — not a
+        stored field, since it follows directly from the two Sellmeier
+        formulas already on file."""
+        if "Birefringent-uniaxial" not in cr.get("type", ""):
+            self.lbl_uniaxial_sign.setText("")
+            return
+        try:
+            sf_e = self._db.sellmeier(cr, axis="e")
+            sf_o = self._db.sellmeier(cr, axis="o")
+            if sf_o is None or not sf_e.is_ready or not sf_o.is_ready:
+                self.lbl_uniaxial_sign.setText("(need both o and e formulas)")
+                return
+            lam0 = 0.5 * (cr.get("lambda_min", 0.4) + cr.get("lambda_max", 5.0))
+            T0   = cr.get("T0", 27.0)
+            no   = float(sf_o.n(lam0, T0))
+            ne   = float(sf_e.n(lam0, T0))
+            if no > ne:
+                self.lbl_uniaxial_sign.setText(
+                    f"Negative  (n_o={no:.4f} > n_e={ne:.4f}  at λ={lam0:.3f} μm)")
+            else:
+                self.lbl_uniaxial_sign.setText(
+                    f"Positive  (n_e={ne:.4f} > n_o={no:.4f}  at λ={lam0:.3f} μm)")
+        except Exception:
+            self.lbl_uniaxial_sign.setText("")
 
     def _load_axis(self, axis: str):
         cr = self._current
@@ -1280,6 +1340,91 @@ class CrystalsTab(QWidget):
             self._reload_list()
 
     # ── Plot ───────────────────────────────────────────────────────────
+    def _on_plot_n_clicked(self):
+        if self.chk_theta_mixed.isChecked():
+            self._plot_mixed_ne()
+        else:
+            self._plot_refractive_index()
+
+    def _on_clear_curves(self):
+        self._n_curves = []
+        ax0, ax1, ax2 = [self.n_canvas.get_ax(i) for i in range(3)]
+        for ax in (ax0, ax1, ax2):
+            ax.clear()
+            self.n_canvas._style_ax(ax)
+        self.n_canvas.refresh()
+        self.lbl_n_status.setText("")
+
+    def _plot_mixed_ne(self):
+        """Angle-dependent extraordinary index for uniaxial crystals:
+        1/n^e(θ)^2 = cos²θ/n_o² + sin²θ/n_e², combining the crystal's pure
+        o- and e-axis formulas as stored in the DB (not the edit box, so
+        this works regardless of which axis is currently shown there).
+        v_g and GVD are obtained by numerical differentiation since the
+        mix is not itself a single symbolic expression."""
+        cr = self._current
+        if cr is None or "Birefringent-uniaxial" not in cr.get("type", ""):
+            self.lbl_n_status.setText(
+                "θ-mixed mode requires a Birefringent-uniaxial crystal.")
+            return
+        sf_o = self._db.sellmeier(cr, axis="o")
+        sf_e = self._db.sellmeier(cr, axis="e")
+        if not sf_o.is_ready or not sf_e.is_ready:
+            self.lbl_n_status.setText(
+                "θ-mixed mode requires both o- and e-axis formulas to be defined.")
+            return
+
+        theta = np.deg2rad(self.sb_theta.value())
+        T_prev = self.sb_T_preview.value()
+        lam = np.linspace(cr.get("lambda_min", 0.4), cr.get("lambda_max", 5.0), 500)
+
+        no = sf_o.n(lam, T_prev)
+        ne = sf_e.n(lam, T_prev)
+        n  = 1.0 / np.sqrt((np.cos(theta) / no) ** 2 + (np.sin(theta) / ne) ** 2)
+
+        dn   = np.gradient(n, lam)
+        d2n  = np.gradient(dn, lam)
+        n_g  = n - lam * dn
+        vg   = (_C_UM_PS / n_g) * 1e-2                       # 10⁸ m/s
+        gvd  = (lam ** 3 * d2n / (2 * np.pi * _C_UM_PS ** 2)) * 1e9   # fs²/mm
+
+        label = f"{cr['name']}  θ={self.sb_theta.value():.1f}°"
+        self._add_curve_and_redraw(lam, n, vg, gvd, label, overlay=True)
+
+    def _add_curve_and_redraw(self, lam, n, vg, gvd, label, overlay: bool):
+        if not overlay:
+            self._n_curves = []
+        self._n_curves.append({"lam": lam, "n": n, "vg": vg, "gvd": gvd, "label": label})
+
+        mid = len(lam) // 2
+        self.lbl_n_status.setText(
+            f"{label}:  n({lam[mid]:.3f} μm) = {n[mid]:.5f}   "
+            f"v_g = {vg[mid]:.4f} × 10⁸ m/s   "
+            f"GVD = {gvd[mid]:.1f} fs²/mm"
+        )
+
+        ax0, ax1, ax2 = [self.n_canvas.get_ax(i) for i in range(3)]
+        for ax in (ax0, ax1, ax2):
+            ax.clear()
+            self.n_canvas._style_ax(ax)
+
+        cmap = plt.get_cmap("tab10")
+        for i, c in enumerate(self._n_curves):
+            color = cmap(i % 10)
+            ax0.plot(c["lam"], c["n"],   color=color, lw=1.5, label=c["label"])
+            ax1.plot(c["lam"], c["vg"],  color=color, lw=1.5)
+            ax2.plot(c["lam"], c["gvd"], color=color, lw=1.5)
+
+        ax0.set_xlabel("λ  (μm)"); ax0.set_ylabel("n(λ)"); ax0.set_title("Refractive index")
+        ax0.legend(fontsize=8)
+        ax1.set_xlabel("λ  (μm)"); ax1.set_ylabel("v_g  (10⁸ m/s)")
+        ax1.set_title("Group Velocity")
+        ax2.axhline(0, color="#555", lw=0.8, ls="--")
+        ax2.set_xlabel("λ  (μm)"); ax2.set_ylabel("GVD  (fs²/mm)")
+        ax2.set_title("Group Velocity Dispersion")
+
+        self.n_canvas.refresh()
+
     def _plot_refractive_index(self):
         formula = self.te_formula.toPlainText().strip()
         if not formula:
@@ -1318,37 +1463,10 @@ class CrystalsTab(QWidget):
         self._worker_thread.start()
 
     def _on_plot_done(self, lam, n, vg, dn, gvd):
-        mid = len(lam) // 2
         self.btn_plot_n.setEnabled(True)
-        self.lbl_n_status.setText(
-            f"n({lam[mid]:.3f} μm, {self.sb_T_preview.value():.0f}°C) "
-            f"= {n[mid]:.5f}   "
-            f"v_g = {vg[mid]:.4f} × 10⁸ m/s   "
-            f"GVD = {gvd[mid]:.1f} fs²/mm"
-        )
-
-        ax0, ax1, ax2 = [self.n_canvas.get_ax(i) for i in range(3)]
-        for ax in (ax0, ax1, ax2):
-            ax.clear()
-            self.n_canvas._style_ax(ax)
-
         lbl = (self._current["name"] if self._current else "") + \
               ("  (e)" if self.cb_axis.currentIndex() == 0 else "  (o)")
-
-        ax0.plot(lam, n, color="#00bcd4", lw=1.5, label=lbl)
-        ax0.set_xlabel("λ  (μm)"); ax0.set_ylabel("n(λ)"); ax0.set_title("Refractive index")
-        ax0.legend(fontsize=8)
-
-        ax1.plot(lam, vg, color="#ff6d00", lw=1.5)
-        ax1.set_xlabel("λ  (μm)"); ax1.set_ylabel("v_g  (10⁸ m/s)")
-        ax1.set_title("Group Velocity")
-
-        ax2.plot(lam, gvd, color="#00e676", lw=1.5)
-        ax2.axhline(0, color="#555", lw=0.8, ls="--")
-        ax2.set_xlabel("λ  (μm)"); ax2.set_ylabel("GVD  (fs²/mm)")
-        ax2.set_title("Group Velocity Dispersion")
-
-        self.n_canvas.refresh()
+        self._add_curve_and_redraw(lam, n, vg, gvd, lbl, overlay=False)
 
     def _on_plot_error(self, msg: str):
         self.btn_plot_n.setEnabled(True)
