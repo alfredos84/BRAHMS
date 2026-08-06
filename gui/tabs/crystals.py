@@ -11,6 +11,7 @@ from ..widgets.plot_canvas import PlotCanvas
 from ..core_py.crystal_db import get_db
 from ..core_py.sellmeier  import SellmeierFormula
 from ..core_py.bibtex_utils import bibtex_to_citation
+from ..core_py.phase_matching import crystal_sign
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -1149,7 +1150,8 @@ class CrystalsTab(QWidget):
             T0   = cr.get("T0", 27.0)
             no   = float(sf_o.n(lam0, T0))
             ne   = float(sf_e.n(lam0, T0))
-            if no > ne:
+            sign = crystal_sign(sf_o, sf_e, lam0, T0)
+            if sign == "negative":
                 self.lbl_uniaxial_sign.setText(
                     f"Negative  (n_o={no:.4f} > n_e={ne:.4f}  at λ={lam0:.3f} μm)")
             else:

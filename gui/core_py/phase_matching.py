@@ -254,3 +254,151 @@ def _three_wavelengths(lam_scan: float,
         lam_p = lam_scan
         lam_s = lam_i = 2.0 * lam_scan   # degenerate signal/idler
     return lam_p, lam_s, lam_i
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# Birefringent (angle-tuned) uniaxial phase matching
+#
+# Analytic closed-form phase-matching angle from Dmitriev, Gurzadyan &
+# Nikogosyan, "Handbook of Nonlinear Optical Crystals", Table 2.1 — exact
+# for ooe / oeo / eoo, accurate to ~0.1-0.2 deg for oee / eoe / eeo.
+#
+# Convention (same as the handbook): waves 1 and 2 are the two
+# lower-frequency (longer-wavelength) fields, wave 3 is the highest-
+# frequency (shortest-wavelength) field — always lam3 < lam1, lam3 < lam2.
+# The letters in a PM-type string ("ooe", "eoe", ...) give the
+# polarisation (o/e) of waves 1, 2, 3 in that order.
+# ══════════════════════════════════════════════════════════════════════════
+
+PM_TYPES = {
+    "negative": ["ooe", "oee", "eoe"],   # k_o1 + k_o2 = k_e3(theta), etc.
+    "positive": ["eeo", "oeo", "eoo"],
+}
+
+PM_TYPE_LABELS = {
+    "ooe": "ooe  (Type I)",
+    "oee": "oee  (Type II)",
+    "eoe": "eoe  (Type II)",
+    "eeo": "eeo  (Type I)",
+    "oeo": "oeo  (Type II)",
+    "eoo": "eoo  (Type II)",
+}
+
+
+def crystal_sign(sf_o: SellmeierFormula, sf_e: SellmeierFormula,
+                  lam_ref: float, T_ref: float = 25.0) -> str:
+    """Negative (n_o > n_e) or positive (n_e > n_o) uniaxial, from the
+    crystal's own o/e Sellmeier formulas at a reference wavelength/T —
+    not a stored property, since it follows directly from the formulas."""
+    no = float(sf_o.n(lam_ref, T_ref))
+    ne = float(sf_e.n(lam_ref, T_ref))
+    return "negative" if no > ne else "positive"
+
+
+def wavelengths_for_scan(lam_scan, lam_fixed: float, process: str):
+    """
+    Return (lam1, lam2, lam3) — lam3 always the shortest wavelength.
+
+    SHG              : lam1 = lam2 = lam_scan (fundamental),  lam3 = lam_scan/2.
+                        lam_fixed is unused (fully degenerate, no free 3rd λ).
+    SFG / DFG / OPG  : lam3 = lam_fixed (pump, or sum-frequency output —
+                        mathematically identical, always the shortest λ);
+                        lam1 = lam_scan; lam2 from energy conservation
+                        1/lam3 = 1/lam1 + 1/lam2. NaN where lam_scan <= lam_fixed
+                        (energy conservation would require lam2 <= 0).
+
+    lam_scan may be a scalar or a numpy array; lam_fixed is always scalar.
+    """
+    lam_scan = np.asarray(lam_scan, dtype=float)
+    if process == "SHG":
+        lam1 = lam2 = lam_scan
+        lam3 = lam_scan / 2.0
+    else:
+        lam1 = lam_scan
+        lam3 = np.full_like(lam_scan, float(lam_fixed))
+        with np.errstate(divide="ignore", invalid="ignore"):
+            inv2 = 1.0 / lam3 - 1.0 / lam1
+            lam2 = np.where(inv2 > 0, 1.0 / np.where(inv2 > 0, inv2, np.nan), np.nan)
+    return lam1, lam2, lam3
+
+
+class UniaxialPMCalc:
+    """
+    Angle-tuned phase matching for birefringent uniaxial crystals, via the
+    closed-form expressions of Table 2.1 (no root-finding needed).
+
+    Parameters
+    ----------
+    sf_o, sf_e : SellmeierFormula
+        Pure ordinary / extraordinary axis formulas (NOT angle-mixed).
+    lam_ref, T_ref : reference point used only to determine the crystal's
+        uniaxial sign (n_o vs n_e); does not affect theta_pm() itself.
+    """
+
+    def __init__(self, sf_o: SellmeierFormula, sf_e: SellmeierFormula,
+                 lam_ref: float = 1.0, T_ref: float = 25.0):
+        self.sf_o = sf_o
+        self.sf_e = sf_e
+        self._sign = crystal_sign(sf_o, sf_e, lam_ref, T_ref)
+
+    @property
+    def sign(self) -> str:
+        return self._sign
+
+    def valid_pm_types(self) -> list[str]:
+        return list(PM_TYPES[self._sign])
+
+    def theta_pm(self, lam1, lam2, lam3, T, pm_type: str) -> np.ndarray:
+        """Phase-matching angle theta_pm [deg] (NaN where no real solution
+        exists, i.e. tan^2(theta) < 0). lam1/lam2/lam3/T may be scalars or
+        broadcastable numpy arrays."""
+        sign = self._sign
+        if pm_type not in PM_TYPES[sign]:
+            raise ValueError(
+                f"PM type '{pm_type}' is not valid for a {sign} uniaxial crystal "
+                f"(valid: {PM_TYPES[sign]})")
+
+        no1 = np.asarray(self.sf_o.n(lam1, T), dtype=float)
+        no2 = np.asarray(self.sf_o.n(lam2, T), dtype=float)
+        no3 = np.asarray(self.sf_o.n(lam3, T), dtype=float)
+        ne1 = np.asarray(self.sf_e.n(lam1, T), dtype=float)
+        ne2 = np.asarray(self.sf_e.n(lam2, T), dtype=float)
+        ne3 = np.asarray(self.sf_e.n(lam3, T), dtype=float)
+
+        A, B, C = no1 / lam1, no2 / lam2, no3 / lam3
+        D, E, F = ne1 / lam1, ne2 / lam2, ne3 / lam3
+
+        with np.errstate(divide="ignore", invalid="ignore"):
+            if sign == "negative":
+                U = (A + B) ** 2 / C ** 2
+                W = (A + B) ** 2 / F ** 2
+                if pm_type == "ooe":
+                    tan2 = (1 - U) / (W - 1)
+                elif pm_type == "oee":
+                    R = (A + B) ** 2 / (D + B) ** 2
+                    tan2 = (1 - U) / (W - R)
+                else:  # eoe
+                    Q = (A + B) ** 2 / (A + E) ** 2
+                    tan2 = (1 - U) / (W - Q)
+            else:
+                if pm_type == "eeo":
+                    U = (A + B) ** 2 / C ** 2
+                    S = (A + B) ** 2 / (D + E) ** 2
+                    tan2 = (1 - U) / (U - S)
+                elif pm_type == "oeo":
+                    V = B ** 2 / (C - A) ** 2
+                    Y = B ** 2 / E ** 2
+                    tan2 = (1 - V) / (V - Y)
+                else:  # eoo
+                    Tt = A ** 2 / (C - B) ** 2
+                    Z = A ** 2 / D ** 2
+                    tan2 = (1 - Tt) / (Tt - Z)
+
+        tan2 = np.asarray(tan2, dtype=float)
+        theta = np.full(tan2.shape, np.nan) if tan2.ndim else np.nan
+        valid = np.isfinite(tan2) & (tan2 >= 0)
+        if tan2.ndim:
+            theta[valid] = np.degrees(np.arctan(np.sqrt(tan2[valid])))
+        elif valid:
+            theta = float(np.degrees(np.arctan(np.sqrt(tan2))))
+        return theta
