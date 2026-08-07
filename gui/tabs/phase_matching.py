@@ -798,6 +798,7 @@ class _BirefringentPanel(QWidget):
 
         self.cb_crystal.currentIndexChanged.connect(self._on_crystal_changed)
         self.cb_process.currentIndexChanged.connect(self._on_process_changed)
+        self.sb_op_l1.valueChanged.connect(self._on_op_l1_changed)
         self.btn_calc.clicked.connect(self._calculate)
         self.btn_find.clicked.connect(self._find_pm_point)
         self.btn_load_sim.clicked.connect(self._emit_load_to_sim)
@@ -819,10 +820,18 @@ class _BirefringentPanel(QWidget):
             self.lbl_op_l1_name.setText("λ_p (μm)  [fundamental]")
             self.lbl_op_l3_name.setText("λ_p / 2  (auto: λ_s = λ_i)")
             self.lbl_l1_scan_name.setText("λ_p scan (μm)")
+            self.sb_op_l3.setValue(self.sb_op_l1.value() / 2.0)
         else:
             self.lbl_op_l1_name.setText("λ_s (μm)  [scanned]")
             self.lbl_op_l3_name.setText("λ_p (μm)  [pump, fixed]")
             self.lbl_l1_scan_name.setText("λ_s scan (μm)")
+
+    def _on_op_l1_changed(self, value: float):
+        # sb_op_l3 is disabled (display-only) for SHG, showing lambda_p/2 —
+        # keep it in sync as lambda_p (sb_op_l1) changes, instead of
+        # leaving whatever stale value it last had.
+        if self.cb_process.currentText() == "SHG":
+            self.sb_op_l3.setValue(value / 2.0)
 
     def _on_crystal_changed(self, _idx):
         calc = self._make_calc()
