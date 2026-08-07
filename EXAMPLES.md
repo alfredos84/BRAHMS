@@ -137,6 +137,32 @@ Runs the full space- and time-resolved simulation in `focused-pulsed`
 mode — the most demanding configuration BRAHMS supports, and the one that
 benefits the most from the GPU backend.
 
+### Walkthrough: OPG from vacuum noise in MgO:PPLN
+
+This example runs optical parametric generation (OPG) in MgO:PPLN with a
+focused, pulsed pump — signal and idler start purely from vacuum noise and
+build up through the nonlinear interaction, with no injected seed field.
+
+**1. Set the parameters and run.** Choose the process (OPG), the focused
+Gaussian pulse parameters for the pump (wavelength, power, waist, FWHM,
+focal point), the signal/idler wavelengths, the crystal, and the (3+1)D grid
+(NX, NY, NZ, NT). Since signal and idler are left as vacuum noise, press
+**Run (GPU/CUDA)** — recommended for this mode, given the grid sizes
+involved — or **Run (CPU/OpenMP)**.
+
+![Setting up an OPG (3+1)D simulation in MgO:PPLN](./figures/Ex_full4D_1_parameters.png)
+
+**2. Inspect the results.** The Results sub-tab opens automatically once the
+run finishes. The right-hand column shows the temporal power profile
+$P(t)$ of the input pump, output pump, output signal, and output idler,
+each labeled with its pulse energy — here the pump depletes from 749.75 nJ
+to 492.29 nJ, generating 187.33 nJ of signal and 67.96 nJ of idler purely
+from noise. On the left, the **Display** dropdown selects which field's
+transverse intensity $|A(x,y)|^2$ to plot at the time slice set by the
+**t-slice** bar, letting you scan through the pulse in time.
+
+![OPG (3+1)D results: input/output pulse energies and idler transverse profile](./figures/Ex_full4D_1_results.png)
+
 ---
 
 For the underlying physical model and numerical method, see the paper (in
