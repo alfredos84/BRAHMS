@@ -701,15 +701,24 @@ class _BirefringentPanel(QWidget):
         lv.addWidget(gb_cr)
 
         # ── Operating Point ───────────────────────────────────────────
+        # Which of (lam1, lam3) is "p" vs "s" flips with the process (see
+        # _on_process_changed): for SHG lam1 is the fundamental (pump) and
+        # lam3=lam1/2 is signal=idler; for SFG/DFG/OPG lam3 is the pump
+        # (fixed) and lam1 is the signal being scanned. The row labels are
+        # updated to always read lambda_p / lambda_s / lambda_i, matching
+        # the naming used everywhere else in the app instead of the
+        # Table-2.1 "wave 1/2/3" convention.
         gb_op = QGroupBox("Operating Point  →  compute θ_pm")
         go = QGridLayout(gb_op)
         go.setSpacing(6)
-        go.addWidget(QLabel("λ₁ (μm)"), 0, 0)
+        self.lbl_op_l1_name = QLabel("λ_p (μm)")
+        go.addWidget(self.lbl_op_l1_name, 0, 0)
         self.sb_op_l1 = QDoubleSpinBox()
         self.sb_op_l1.setRange(0.1, 20); self.sb_op_l1.setDecimals(4)
         self.sb_op_l1.setValue(0.6)
         go.addWidget(self.sb_op_l1, 0, 1)
-        go.addWidget(QLabel("λ₃ (μm)  [fixed, shortest]"), 1, 0)
+        self.lbl_op_l3_name = QLabel("λ_p (μm)  [fixed]")
+        go.addWidget(self.lbl_op_l3_name, 1, 0)
         self.sb_op_l3 = QDoubleSpinBox()
         self.sb_op_l3.setRange(0.1, 20); self.sb_op_l3.setDecimals(4)
         self.sb_op_l3.setValue(0.4)
@@ -724,12 +733,12 @@ class _BirefringentPanel(QWidget):
         self.btn_find.setObjectName("runButton")
         go.addWidget(self.btn_find, 3, 0, 1, 2)
 
-        self.lbl_op_l2  = QLabel("λ₂ = —")
+        self.lbl_op_wavelengths = QLabel("λ_p = —   λ_s = —   λ_i = —")
         self.lbl_op_pm  = QLabel("θ_pm = —")
-        for lbl in (self.lbl_op_l2, self.lbl_op_pm):
+        for lbl in (self.lbl_op_wavelengths, self.lbl_op_pm):
             lbl.setObjectName("valueLabel")
             lbl.setWordWrap(True)
-        go.addWidget(self.lbl_op_l2, 4, 0, 1, 2)
+        go.addWidget(self.lbl_op_wavelengths, 4, 0, 1, 2)
         go.addWidget(self.lbl_op_pm, 5, 0, 1, 2)
 
         self.btn_load_sim = QPushButton("→ Load into Simulation")
@@ -744,7 +753,8 @@ class _BirefringentPanel(QWidget):
 
         def _add_range(row, label, attr_min, attr_max, attr_n,
                        vmin, vmax, vn, dec=2, rmin=-273, rmax=10000):
-            gs.addWidget(QLabel(label), row, 0, 1, 3)
+            lbl = QLabel(label)
+            gs.addWidget(lbl, row, 0, 1, 3)
             sb_min = QDoubleSpinBox()
             sb_min.setRange(rmin, rmax); sb_min.setDecimals(dec); sb_min.setValue(vmin)
             sb_max = QDoubleSpinBox()
@@ -757,9 +767,11 @@ class _BirefringentPanel(QWidget):
             setattr(self, attr_min, sb_min)
             setattr(self, attr_max, sb_max)
             setattr(self, attr_n,   sb_n)
+            return lbl
 
-        _add_range(0, "λ₁ scan (μm)", "sb_l1min", "sb_l1max", "sb_l1N",
-                   0.48, 0.75, 300, 4, rmin=0.05, rmax=100)
+        self.lbl_l1_scan_name = _add_range(
+            0, "λ_p scan (μm)", "sb_l1min", "sb_l1max", "sb_l1N",
+            0.48, 0.75, 300, 4, rmin=0.05, rmax=100)
         lv.addWidget(gb_sc)
 
         self.lbl_status = QLabel("")
@@ -803,6 +815,14 @@ class _BirefringentPanel(QWidget):
     def _on_process_changed(self, _idx):
         is_shg = (self.cb_process.currentText() == "SHG")
         self.sb_op_l3.setEnabled(not is_shg)
+        if is_shg:
+            self.lbl_op_l1_name.setText("λ_p (μm)  [fundamental]")
+            self.lbl_op_l3_name.setText("λ_p / 2  (auto: λ_s = λ_i)")
+            self.lbl_l1_scan_name.setText("λ_p scan (μm)")
+        else:
+            self.lbl_op_l1_name.setText("λ_s (μm)  [scanned]")
+            self.lbl_op_l3_name.setText("λ_p (μm)  [pump, fixed]")
+            self.lbl_l1_scan_name.setText("λ_s scan (μm)")
 
     def _on_crystal_changed(self, _idx):
         calc = self._make_calc()
@@ -857,10 +877,13 @@ class _BirefringentPanel(QWidget):
             return
 
         process   = self.cb_process.currentText()
+        is_shg    = (process == "SHG")
         lam_fixed = self.sb_op_l3.value()
         T_fixed   = self.sb_op_T.value()
+        x_label   = "λ_p  (μm)" if is_shg else "λ_s  (μm)"
 
-        # θ_pm vs λ₁ scan (T fixed)
+        # θ_pm vs the scanned wavelength (T fixed) — λ_p itself for SHG
+        # (fundamental), or λ_s for SFG/DFG/OPG (pump λ_p held fixed).
         lam_scan = np.linspace(self.sb_l1min.value(), self.sb_l1max.value(),
                                int(self.sb_l1N.value()))
         lam1, lam2, lam3 = wavelengths_for_scan(lam_scan, lam_fixed, process)
@@ -874,20 +897,21 @@ class _BirefringentPanel(QWidget):
         if mask.any():
             ax0.plot(lam_scan[mask], np.asarray(theta_vs_lam)[mask],
                     color="#00e676", lw=1.8)
-        ax0.set_xlabel("λ₁  (μm)", fontsize=9)
+        ax0.set_xlabel(x_label, fontsize=9)
         ax0.set_ylabel("θ_pm  (deg)", fontsize=9)
-        ax0.set_title(f"θ_pm(λ₁)  [{pm_label},  T = {T_fixed:.1f} °C]", fontsize=9)
+        ax0.set_title(f"θ_pm({x_label.split()[0]})  [{pm_label},  T = {T_fixed:.1f} °C]", fontsize=9)
 
         self.canvas.fig.tight_layout()
         self.canvas.refresh()
 
+        x_name = x_label.split()[0]
         if mask.any():
             valid = np.asarray(theta_vs_lam)[mask]
             self.lbl_status.setText(
-                f"θ_pm range (vs λ₁): {valid.min():.2f}° – {valid.max():.2f}°")
+                f"θ_pm range (vs {x_name}): {valid.min():.2f}° – {valid.max():.2f}°")
         else:
             self.lbl_status.setText(
-                "No real θ_pm solution in this λ₁ range for the chosen PM type.")
+                f"No real θ_pm solution in this {x_name} range for the chosen PM type.")
 
     def _find_pm_point(self):
         calc = self._make_calc()
@@ -909,11 +933,21 @@ class _BirefringentPanel(QWidget):
         self.btn_load_sim.setEnabled(False)
 
         if np.isnan(lam2_scalar) or (np.isnan(theta) if np.isscalar(theta) else not np.isfinite(theta)):
-            self.lbl_op_l2.setText("λ₂ = —  (check energy conservation / λ range)")
+            self.lbl_op_wavelengths.setText(
+                "λ_p = —   λ_s = —   λ_i = —   (check energy conservation / λ range)")
             self.lbl_op_pm.setText("θ_pm = —  (no real solution for this PM type)")
             return
 
-        self.lbl_op_l2.setText(f"λ₂ = {lam2_scalar:.4f} μm   (λ₃ = {lam3_scalar:.4f} μm)")
+        # Engine convention (same as core_py/config_builder.py):
+        #   SHG            : pump = fundamental (lam1), signal = idler = SH (lam3)
+        #   SFG / DFG / OPG: pump = shortest (lam3), signal = lam1, idler = lam2
+        if process == "SHG":
+            lp_eng, ls_eng, li_eng = lam1, lam3_scalar, lam3_scalar
+        else:
+            lp_eng, ls_eng, li_eng = lam3_scalar, lam1, lam2_scalar
+
+        self.lbl_op_wavelengths.setText(
+            f"λ_p = {lp_eng:.4f} μm   λ_s = {ls_eng:.4f} μm   λ_i = {li_eng:.4f} μm")
 
         if process == "SHG" and pm_type[0] != pm_type[1]:
             self.lbl_op_pm.setText(
@@ -924,14 +958,6 @@ class _BirefringentPanel(QWidget):
 
         self.lbl_op_pm.setText(
             f"θ_pm = {float(theta):.2f}°   [{calc.sign} uniaxial, {pm_type}]")
-
-        # Engine convention (same as core_py/config_builder.py):
-        #   SHG            : pump = fundamental (lam1), signal = idler = SH (lam3)
-        #   SFG / DFG / OPG: pump = shortest (lam3), signal = lam1, idler = lam2
-        if process == "SHG":
-            lp_eng, ls_eng, li_eng = lam1, lam3_scalar, lam3_scalar
-        else:
-            lp_eng, ls_eng, li_eng = lam3_scalar, lam1, lam2_scalar
 
         self._pm_result = {
             "crystal": self.cb_crystal.currentText(), "process": process,
