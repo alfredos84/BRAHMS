@@ -82,6 +82,14 @@ class PlotCanvas(QWidget):
     def clear(self):
         self._init_axes()
 
+    def set_grid(self, nrows, ncols):
+        """Change the subplot grid (e.g. dropping a column that has no
+        data to show) and rebuild the axes — always clears, same as
+        clear(), so callers don't need a separate fig.clear() first."""
+        self._nrows = nrows
+        self._ncols = ncols
+        self._init_axes()
+
     def get_ax(self, index=0):
         return self._axes_list[index]
 

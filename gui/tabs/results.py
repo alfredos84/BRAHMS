@@ -42,6 +42,7 @@ def _load_h5_real(path: str, dataset: str = "intensity") -> np.ndarray | None:
 
 _FIELD_COLORS = {"Pump": "#ff6d00", "Signal": "#00e676", "Idler": "#40c4ff"}
 _FIELDS       = ["Pump", "Signal", "Idler"]
+_FIELDS_DEGENERATE = ["Pump", "Signal"]   # idler == signal for SHG-like processes: not a distinct field
 
 
 class ResultsTab(QWidget):
@@ -137,6 +138,7 @@ class ResultsTab(QWidget):
         self._fields_data:  dict[str, np.ndarray] = {}
         self._fields_input: dict[str, np.ndarray] = {}
         self._vol_data:     dict[str, np.ndarray] = {}  # (NZ, NY, NX) intensity volumes
+        self._degenerate = False   # SHG-like: idler is not a distinct field
         self._T3D = None
         self._n   = {"Pump": 1.0, "Signal": 1.0, "Idler": 1.0}
         self._LX_um  = None
@@ -309,6 +311,7 @@ class ResultsTab(QWidget):
                 degenerate   = cfg["crystal"].get("degenerate", False)
             except Exception:
                 pass
+        self._degenerate = degenerate
 
         # Load output fields
         self._fields_data  = {}
@@ -329,10 +332,6 @@ class ResultsTab(QWidget):
                     if Ain is not None:
                         self._fields_input[name] = Ain
 
-        # For degenerate processes (SHG): idler == signal
-        if degenerate and "Idler" not in self._fields_data and "Signal" in self._fields_data:
-            self._fields_data["Idler"] = self._fields_data["Signal"]
-
         # Load intensity volumes  |A(x, y, z)|²  — shape (NZ, NY, NX)
         self._vol_data = {}
         for name, fname in [("Pump",   "pump_volume.h5"),
@@ -343,8 +342,6 @@ class ResultsTab(QWidget):
                 arr = _load_h5_real(p, "intensity")
                 if arr is not None:
                     self._vol_data[name] = arr   # shape (NZ, NY, NX)
-        if degenerate and "Idler" not in self._vol_data and "Signal" in self._vol_data:
-            self._vol_data["Idler"] = self._vol_data["Signal"]
 
         # Update slice slider ranges from actual volume dimensions
         if self._vol_data:
@@ -363,6 +360,12 @@ class ResultsTab(QWidget):
             self._load_thermal(th_path)
 
     # ── Helpers ─────────────────────────────────────────────────────────
+    def _active_fields(self) -> list[str]:
+        """Fields to plot: Idler is dropped for degenerate (SHG-like)
+        processes, where it is the same field as Signal and plotting it
+        separately would be redundant."""
+        return _FIELDS_DEGENERATE if self._degenerate else _FIELDS
+
     def _extent(self, NY, NX):
         """Physical extent [μm] for imshow."""
         LX = self._LX_um if self._LX_um else float(NX)
@@ -380,8 +383,9 @@ class ResultsTab(QWidget):
         self._update_efficiency()
 
     def _plot_intensities(self):
-        self.canvas_int.fig.clear()
-        self.canvas_int._init_axes()
+        fields = self._active_fields()
+        ncols  = len(fields)
+        self.canvas_int.set_grid(2, ncols)
 
         iz  = self.sl_z.value()
         ix  = self.sl_x.value()
@@ -389,9 +393,9 @@ class ResultsTab(QWidget):
         LX  = self._LX_um  or 1.0
         Lcr = self._Lcr_mm or 10.0
 
-        for col, name in enumerate(_FIELDS):
+        for col, name in enumerate(fields):
             ax_top = self.canvas_int.get_ax(col)
-            ax_bot = self.canvas_int.get_ax(col + 3)
+            ax_bot = self.canvas_int.get_ax(col + ncols)
 
             if name not in self._vol_data:
                 for ax, t in [(ax_top, f"{name}   |A(x,y, z₀)|²"),
@@ -432,12 +436,13 @@ class ResultsTab(QWidget):
         self.canvas_int.refresh()
 
     def _plot_phases(self):
-        self.canvas_ph.fig.clear()
-        self.canvas_ph._init_axes()
+        fields = self._active_fields()
+        ncols  = len(fields)
+        self.canvas_ph.set_grid(2, ncols)
 
-        for col, name in enumerate(_FIELDS):
+        for col, name in enumerate(fields):
             ax_top = self.canvas_ph.get_ax(col)
-            ax_bot = self.canvas_ph.get_ax(col + 3)
+            ax_bot = self.canvas_ph.get_ax(col + ncols)
 
             if name not in self._fields_data:
                 for ax, t in [(ax_top, f"{name}   phase(x,y, z=L)"),
@@ -503,7 +508,7 @@ class ResultsTab(QWidget):
 
         powers = {}
 
-        for name in _FIELDS:
+        for name in self._active_fields():
             n_val = self._n.get(name, 1.0)
             P_W   = None
             I_W   = None
