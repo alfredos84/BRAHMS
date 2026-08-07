@@ -52,6 +52,42 @@ configuration, on either the CPU or GPU backend. Use this tab to explore a
 single set of physical parameters and inspect the resulting beam profiles,
 phases, and (optionally) thermal profile.
 
+### Walkthrough: SHG in birefringent β-BBO
+
+This example runs SHG (0.8 → 0.4 μm) in β-BBO, a birefringent crystal, and
+compares the result with and without spatial walk-off.
+
+**1. Enable spatial walk-off for the signal.** In **Nonlinear Crystals →
+Properties**, check the "on" box next to $\rho_s$ (rad) to include the
+signal's spatial walk-off angle in the simulation, or leave it unchecked to
+ignore it. As with any property edit, click **Set changes** afterwards —
+otherwise the change has no effect on the next run.
+
+![Enabling spatial walk-off for the signal](./figures/Ex_SingleRes_BBO_1_params_set_rho.png)
+
+**2. Compute the phase-matching angle.** In **Phase Matching → Birefringent**,
+set the operating (fundamental) wavelength for SHG and click **Compute
+θ_pm**, then **→ Load into Simulation** to send the crystal, wavelengths, PM
+type, and $\theta_\mathrm{pm}$ to the Single simulation tab.
+
+![Computing θ_pm for BBO SHG](./figures/Ex_SingleRes_BBO_2_pm.png)
+
+**3. Set the remaining parameters and run.** Back in **Single simulation**,
+confirm that the PM type and $\theta_\mathrm{pm}$ were loaded correctly, set
+any other parameters (power, waist, crystal length, grid, etc.), and press
+**Run (GPU/CUDA)** or **Run (CPU/OpenMP)**. The Results sub-tab opens
+automatically once the run finishes.
+
+![Loaded PM angle and simulation parameters](./figures/Ex_SingleRes_BBO_3_set_simul.png)
+
+**4–5. Compare with and without walk-off.** Without spatial walk-off, pump
+and signal stay collinear along the crystal. With it enabled (step 1), the
+signal beam visibly drifts transversally away from the pump as it
+propagates — the walk-off displacement.
+
+![Beam profiles without spatial walk-off](./figures/Ex_SingleRes_BBO_4.png)
+![Beam profiles with spatial walk-off — note the signal's transverse shift](./figures/Ex_SingleRes_BBO_5_walfoff.png)
+
 ## 4. Parameter Sweep
 
 Automates repeated simulations while scanning one physical parameter
