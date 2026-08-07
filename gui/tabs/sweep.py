@@ -443,7 +443,7 @@ class SweepTab(QWidget):
         self.lbl_fixed.setObjectName("unitLabel")
         self.lbl_fixed.setWordWrap(True)
         self.btn_refresh_fixed = QPushButton("Load from Single Simulation")
-        self.btn_refresh_fixed.clicked.connect(self._refresh_fixed)
+        self.btn_refresh_fixed.clicked.connect(self._on_load_from_sim_clicked)
         gf.addWidget(self.lbl_fixed)
         gf.addWidget(self.btn_refresh_fixed)
         lv.addWidget(gb_fix)
@@ -579,19 +579,43 @@ class SweepTab(QWidget):
         self.lbl_max_unit.setText(unit)
         # Show ξ-display toggle only when sweeping beam waist
         self.chk_xi_display.setVisible(key == "pump/waist_um")
-        # Refresh fixed-params display so swept param disappears immediately
+        # Refresh the fixed-params *display* so the swept param disappears
+        # immediately — display only, does not touch the crystal combo (see
+        # _refresh_fixed()'s docstring for why that distinction matters).
         if self._sim_tab is not None and self.lbl_fixed.text() != "—":
             self._refresh_fixed()
 
-    def _refresh_fixed(self):
-        """Load parameters from Simulation tab."""
+    def _on_load_from_sim_clicked(self):
+        """Explicit 'Load from Single Simulation' button: this is the ONLY
+        place that should overwrite this tab's own crystal choice with
+        whatever Single Simulation currently has — the user asked for it
+        by clicking. Anything else (changing the swept parameter, pressing
+        Run) must leave widgets the user set in THIS tab alone; silently
+        reverting a combo box the user just picked is a bad-surprise bug,
+        not a feature — see the Parameter Sweep crystal-revert issue this
+        was written to fix, and check other tabs for the same pattern
+        before adding new "auto refresh from elsewhere" code."""
         self.btn_refresh_fixed.setText("Loading...")
         self.btn_refresh_fixed.setEnabled(False)
+        if self._sim_tab is not None:
+            crystal_name = self._sim_tab._collect_params().get("crystal", "")
+            idx = self.cb_crystal.findText(crystal_name)
+            if idx >= 0:
+                self.cb_crystal.setCurrentIndex(idx)
+        self._refresh_fixed()
+        self.btn_refresh_fixed.setText("✓ Load from Single Simulation")
+        QTimer.singleShot(1500, lambda: self.btn_refresh_fixed.setText("Load from Single Simulation"))
+        self.btn_refresh_fixed.setEnabled(True)
 
+    def _refresh_fixed(self):
+        """Update the read-only fixed-params text from Single Simulation's
+        current values. Display only — must never mutate this tab's own
+        widgets (crystal combo, Delta k override, sweep range, ...); that
+        silent-revert behavior was a real bug (see _on_load_from_sim_clicked
+        docstring), so if you're tempted to add a widget sync here, put it
+        in _on_load_from_sim_clicked instead, behind an explicit user action."""
         if self._sim_tab is None:
             self.lbl_fixed.setText("Simulation tab not connected.")
-            self.btn_refresh_fixed.setText("Load from Single Simulation")
-            self.btn_refresh_fixed.setEnabled(True)
             return
 
         try:
@@ -599,15 +623,12 @@ class SweepTab(QWidget):
             pump = p.get("pump", {})
             grid = p.get("grid", {})
 
-            # Sync crystal combobox from sim tab
-            crystal_name = p.get("crystal", "")
-            idx = self.cb_crystal.findText(crystal_name)
-            if idx >= 0:
-                self.cb_crystal.setCurrentIndex(idx)
-
             # Get the key currently being swept so we can hide it
             swept_key = SWEEP_PARAMS[self.cb_param.currentIndex()][1]
             excluded  = _SWEEP_KEY_EXCLUDES.get(swept_key, set())
+
+            dk_text = (f"Δk = {p['dk']:.4g} μm⁻¹  (forced)" if "dk" in p
+                       else "Δk = natural  (not forced)")
 
             # Each entry: (tag, text) — tag=None means always shown
             all_lines = [
@@ -619,17 +640,13 @@ class SweepTab(QWidget):
                 ("Power",  f"Power = {pump.get('power_W','—')} W"),
                 ("Waist",  f"Waist = {pump.get('waist_um','—')} μm"),
                 ("FWHM",   f"FWHM = {pump.get('fwhm_ps','—')} ps"),
-                ("Δk",     f"Δk = {p.get('dk', 0.0):.4g} μm⁻¹"),
+                ("Δk",     dk_text),
                 (None,     f"Grid: NX={grid.get('NX','—')} NY={grid.get('NY','—')} NZ={grid.get('NZ','—')} NT={grid.get('NT','—')}"),
             ]
             lines = [txt for tag, txt in all_lines if tag not in excluded]
             self.lbl_fixed.setText("\n".join(lines))
         except Exception as e:
             self.lbl_fixed.setText(f"Error loading params: {str(e)}")
-        finally:
-            self.btn_refresh_fixed.setText("✓ Load from Single Simulation")
-            QTimer.singleShot(1500, lambda: self.btn_refresh_fixed.setText("Load from Single Simulation"))
-            self.btn_refresh_fixed.setEnabled(True)
 
     def _build_sweep_values(self):
         vmin = self.sb_min.value()
@@ -653,13 +670,17 @@ class SweepTab(QWidget):
         name, key, unit, *_ = SWEEP_PARAMS[idx]
         values    = self._build_sweep_values()
 
-        # Always pull base params and refresh the fixed-params display
+        # Pull the fixed params from Single Simulation. This must NOT touch
+        # any choice made directly in this tab (crystal combo, Delta k
+        # override, sweep range, ...) — silently reverting a widget the
+        # user just set is exactly the kind of surprise that erodes trust,
+        # so nothing here calls _sync_crystal_from_sim_tab() or otherwise
+        # mutates this tab's own widgets. See _refresh_fixed()'s docstring.
         base_params = {}
         if self._sim_tab:
             base_params = self._sim_tab._collect_params()
-            self._refresh_fixed()
 
-        # Crystal selected directly in the sweep tab takes precedence
+        # Crystal selected directly in the sweep tab always wins.
         base_params["crystal"] = self.cb_crystal.currentText()
 
         # Merge alpha/beta on-off flags from Crystals tab
