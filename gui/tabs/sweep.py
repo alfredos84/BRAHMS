@@ -704,8 +704,13 @@ class SweepTab(QWidget):
         log_x  = self.rb_log.isChecked() and self._x_transform is None
 
         # ── Choose active panels ───────────────────────────────────────
+        # Idler isn't a distinct field for SHG (config_builder.py always
+        # forces degenerate=True there regardless of the checkbox), or for
+        # SFG/DFG/OPG when "Degenerate (signal = idler)" is checked — the
+        # flag itself lives under "idler", not "pump".
         undepleted = bool(base_params.get("undepleted_pump", False))
-        degenerate = bool(base_params.get("pump", {}).get("degenerate", False))
+        degenerate = (base_params.get("process") == "SHG"
+                      or bool(base_params.get("idler", {}).get("degenerate", False)))
         # _PANELS order: 0=Signal, 1=Idler, 2=Pump
         active_panels = [p for i, p in enumerate(self._PANELS)
                          if not (i == 1 and degenerate)      # hide Idler if degenerate
