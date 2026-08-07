@@ -95,6 +95,42 @@ Automates repeated simulations while scanning one physical parameter
 compute conversion-efficiency curves and identify optimal operating
 conditions.
 
+### Walkthrough: optimizing SHG in MgO:sPPLT
+
+This example finds the phase-mismatch $\Delta k$ that maximizes SHG
+conversion efficiency, then uses it to sweep the beam waist (and,
+equivalently, the focusing parameter $\xi$).
+
+**1. Set up the configuration in Single simulation.** Choose the crystal
+(MgO:sPPLT here), process, wavelengths, and the rest of the physical
+parameters as usual — this is the configuration that Parameter Sweep will
+load and hold fixed except for the swept parameter.
+
+![Setting up the crystal and parameters in Single simulation](./figures/Ex_ParameterSweep_MgOsPPLT_1_parameters.png)
+
+**2. Sweep $\Delta k$ to find the optimum.** In **Parameter Sweep**, click
+**Load from Single Simulation** to import that configuration, set
+"Parameter" to **Phase mismatch $\Delta k$**, and run the sweep. Read off the
+$\Delta k$ that maximizes the signal/pump curves (here, $\Delta k =
+-113\times10^{-6}\ \mu\text{m}^{-1}$ for $L_\mathrm{cr}=30$ mm) — check
+**Force $\Delta k$ value** and enter it, so it stays fixed while you sweep a
+different parameter next.
+
+![Sweeping Δk to find the efficiency maximum](./figures/Ex_ParameterSweep_MgOsPPLT_2_pm.png)
+
+**3. Sweep the beam waist at that $\Delta k$.** Switch "Parameter" to **Beam
+waist**, set the sweep range, and run again — the optimal $\Delta k$ found in
+step 2 stays forced throughout.
+
+![Sweeping beam waist at the optimal Δk](./figures/Ex_ParameterSweep_MgOsPPLT_3_beamwaist.png)
+
+**4. Equivalently, sweep the focusing parameter $\xi$.** Checking "Show as
+focusing parameter $\xi$" re-expresses the same beam-waist sweep in terms of
+$\xi = L_\mathrm{cr}\lambda / (2\pi n w_0^2)$ instead — the underlying data is
+the same, only the x-axis changes.
+
+![Same sweep expressed as focusing parameter ξ](./figures/Ex_ParameterSweep_MgOsPPLT_4_xi.png)
+
 ## 5. (3+1)D Simulations
 
 Runs the full space- and time-resolved simulation in `focused-pulsed`
