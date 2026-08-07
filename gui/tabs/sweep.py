@@ -342,9 +342,11 @@ class SweepTab(QWidget):
         layout.addWidget(splitter)
 
         splitter.addWidget(self._build_left())
-        splitter.addWidget(self._build_right())
+        splitter.addWidget(self._build_plot())
+        splitter.addWidget(self._build_log_panel())
         splitter.setStretchFactor(0, 0)
         splitter.setStretchFactor(1, 1)
+        splitter.setStretchFactor(2, 0)
 
         # Radio buttons / checkboxes are stretched to the full column width by
         # the layout, but Qt's stylesheet-based hit-testing only registers
@@ -477,17 +479,6 @@ class SweepTab(QWidget):
         gback.addWidget(self.rb_mpi)
         lv.addWidget(gb_back)
 
-        # ── Run / Stop ─────────────────────────────────────────────────
-        btn_row = QHBoxLayout()
-        self.btn_run  = QPushButton("  Run Sweep  ")
-        self.btn_run.setObjectName("runButton")
-        self.btn_stop = QPushButton("  Stop  ")
-        self.btn_stop.setObjectName("stopButton")
-        self.btn_stop.setEnabled(False)
-        btn_row.addWidget(self.btn_run)
-        btn_row.addWidget(self.btn_stop)
-        lv.addLayout(btn_row)
-
         self.btn_export = QPushButton("Export results (.txt)")
         lv.addWidget(self.btn_export)
         lv.addStretch()
@@ -497,23 +488,32 @@ class SweepTab(QWidget):
         # connections
         self.cb_param.currentIndexChanged.connect(self._on_param_changed)
         self.chk_xi_display.toggled.connect(self._on_xi_toggle)
-        self.btn_run.clicked.connect(self._on_run)
-        self.btn_stop.clicked.connect(self._on_stop)
         self.btn_export.clicked.connect(self._on_export)
         self._on_param_changed(0)
 
         return scroll
 
-    # ── Right panel ────────────────────────────────────────────────────
-    def _build_right(self):
-        right = QWidget()
-        rv = QVBoxLayout(right)
-        rv.setSpacing(6)
-        rv.setContentsMargins(4, 4, 4, 4)
+    # ── Middle panel: plot ───────────────────────────────────────────────
+    def _build_plot(self):
+        plot_w = QWidget()
+        pv = QVBoxLayout(plot_w)
+        pv.setContentsMargins(4, 4, 4, 4)
 
         # 3-panel result plot: Signal | Idler | Pump  (dual Y: power left, η right)
         self.canvas = PlotCanvas(nrows=1, ncols=3, figsize=(12, 4), dpi=95)
-        rv.addWidget(self.canvas, stretch=3)
+        pv.addWidget(self.canvas, stretch=1)
+
+        self._init_plot()
+        return plot_w
+
+    # ── Right panel: log + run buttons (matches Single/Full Simulation) ──
+    def _build_log_panel(self):
+        right = QWidget()
+        right.setMinimumWidth(320)
+        right.setMaximumWidth(560)
+        rv = QVBoxLayout(right)
+        rv.setSpacing(6)
+        rv.setContentsMargins(4, 4, 4, 4)
 
         # Progress bar
         prog_row = QHBoxLayout()
@@ -544,11 +544,23 @@ class SweepTab(QWidget):
         self.log = QTextEdit()
         self.log.setObjectName("logOutput")
         self.log.setReadOnly(True)
-        self.log.setMaximumHeight(130)
         self.log.append("Parameter sweep ready.")
         rv.addWidget(self.log, stretch=1)
 
-        self._init_plot()
+        # Run / Stop
+        btn_row = QVBoxLayout()
+        self.btn_run  = QPushButton("  Run Sweep  ")
+        self.btn_run.setObjectName("runButton")
+        self.btn_stop = QPushButton("  Stop  ")
+        self.btn_stop.setObjectName("stopButton")
+        self.btn_stop.setEnabled(False)
+        btn_row.addWidget(self.btn_run)
+        btn_row.addWidget(self.btn_stop)
+        rv.addLayout(btn_row)
+
+        self.btn_run.clicked.connect(self._on_run)
+        self.btn_stop.clicked.connect(self._on_stop)
+
         return right
 
     # 3-panel definitions: (left_key, right_key, title, color_left, color_right, ylabel_left, ylabel_right)
