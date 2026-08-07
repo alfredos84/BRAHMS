@@ -467,18 +467,6 @@ class SweepTab(QWidget):
         self.chk_force_dk.toggled.connect(self.sb_dk_override.setEnabled)
         lv.addWidget(gb_dk)
 
-        # ── Backend ───────────────────────────────────────────────────
-        gb_back = QGroupBox("Backend")
-        gback = QHBoxLayout(gb_back)
-        self.rb_gpu = QRadioButton("GPU (CUDA)")
-        self.rb_mpi = QRadioButton("CPU (OMP)")
-        self.rb_gpu.setChecked(True)
-        bg2 = QButtonGroup(self)
-        bg2.addButton(self.rb_gpu); bg2.addButton(self.rb_mpi)
-        gback.addWidget(self.rb_gpu)
-        gback.addWidget(self.rb_mpi)
-        lv.addWidget(gb_back)
-
         self.btn_export = QPushButton("Export results (.txt)")
         lv.addWidget(self.btn_export)
         lv.addStretch()
@@ -549,16 +537,20 @@ class SweepTab(QWidget):
 
         # Run / Stop
         btn_row = QVBoxLayout()
-        self.btn_run  = QPushButton("  Run Sweep  ")
+        self.btn_run  = QPushButton("  Run Sweep (GPU / CUDA)  ")
         self.btn_run.setObjectName("runButton")
+        self.btn_mpi  = QPushButton("  Run Sweep (CPU / OpenMP)  ")
+        self.btn_mpi.setObjectName("runButton")
         self.btn_stop = QPushButton("  Stop  ")
         self.btn_stop.setObjectName("stopButton")
         self.btn_stop.setEnabled(False)
         btn_row.addWidget(self.btn_run)
+        btn_row.addWidget(self.btn_mpi)
         btn_row.addWidget(self.btn_stop)
         rv.addLayout(btn_row)
 
-        self.btn_run.clicked.connect(self._on_run)
+        self.btn_run.clicked.connect(lambda: self._on_run("cuda"))
+        self.btn_mpi.clicked.connect(lambda: self._on_run("cpu"))
         self.btn_stop.clicked.connect(self._on_stop)
 
         return right
@@ -668,7 +660,7 @@ class SweepTab(QWidget):
             return np.logspace(np.log10(vmin), np.log10(vmax), int(n))
         return np.linspace(vmin, vmax, int(n))
 
-    def _on_run(self):
+    def _on_run(self, backend: str = "cuda"):
         self._x_data = []
         self._y_data = {"P_signal": [], "P_idler": [], "P_pump_out": [],
                         "eta_s": [], "eta_i": [], "pump_dep": []}
@@ -788,7 +780,6 @@ class SweepTab(QWidget):
 
         project_root = os.path.dirname(os.path.dirname(
             os.path.dirname(os.path.abspath(__file__))))
-        backend = "cuda" if self.rb_gpu.isChecked() else "cpu"
 
         self._thread = QThread()
         self._worker = SweepWorker(values, base_params, key,
@@ -802,6 +793,7 @@ class SweepTab(QWidget):
         self._worker.finished.connect(self._thread.quit)
 
         self.btn_run.setEnabled(False)
+        self.btn_mpi.setEnabled(False)
         self.btn_stop.setEnabled(True)
         self._thread.start()
 
@@ -826,6 +818,7 @@ class SweepTab(QWidget):
             self._worker.stop()
         self.log.append("[SWEEP] Stopped by user.")
         self.btn_run.setEnabled(True)
+        self.btn_mpi.setEnabled(True)
         self.btn_stop.setEnabled(False)
 
     def _on_point_received(self, index, x_val, result):
@@ -851,6 +844,7 @@ class SweepTab(QWidget):
 
     def _on_sweep_finished(self):
         self.btn_run.setEnabled(True)
+        self.btn_mpi.setEnabled(True)
         self.btn_stop.setEnabled(False)
         n = len(self._x_data)
         self.lbl_prog.setText(f"Done — {n} points")
