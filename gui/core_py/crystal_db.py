@@ -132,12 +132,11 @@ PRELOADED: list[dict] = [
     },
     # ── BBO (beta-BaB2O4)  negative uniaxial birefringent ─────────────
     # Sellmeier + dn/dT: Kato, IEEE J. Quantum Electron. 22, 1013 (1986).
-    # deff left at 0.0 on purpose: d_ooe/d_eoe for BBO depend on the cut
-    # angle (theta, phi) via d_ooe = d31*sin(theta) - d22*sin(3*phi)*cos(theta),
-    # d_eoe = d22*cos(theta)^2*cos(3*phi), with d22 = +-2.3 pm/V and
-    # d31 = -+0.16 pm/V at 1.0642 um (Kato 1986). The user must set the
-    # deff value appropriate to their phase-matching angle/configuration
-    # via "Set changes" in the Properties tab.
+    # deff defaults to 2.0 pm/V, a representative type-I (ooe) value
+    # (d_ooe = d31*sin(theta) - d22*sin(3*phi)*cos(theta) ~= d22*cos(theta)
+    # near theta_pm ~ 22-30 deg, with d22 = +-2.3 pm/V at 1.0642 um, Kato
+    # 1986). The exact value depends on the cut angle/phi for your actual
+    # configuration — adjust it via "Set changes" in the Properties tab.
     # Other fields not covered by Kato 1986 (cp, alpha_th, alpha at 1064 nm)
     # use typical literature values, NOT verified against this reference.
     {
@@ -145,7 +144,7 @@ PRELOADED: list[dict] = [
         "type":       "Birefringent-uniaxial",
         "lambda_min": 0.189,
         "lambda_max": 3.5,
-        "deff":       0.0,         # pm/V — user must set (see note above)
+        "deff":       2.0,         # pm/V — representative type-I (ooe) value, see note above
         "alpha_p":    1.0e-4,      # cm⁻¹  estimated (not in Kato 1986)
         "alpha_s":    0.01,        # cm⁻¹  at 0.532 um (Kato 1986)
         "alpha_i":    0.01,
