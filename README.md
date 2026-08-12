@@ -3,7 +3,7 @@
 </p>
 
 
-# BRAHMS — Three-Wave Mixing Simulator
+BRAHMS — Three-Wave Mixing Simulator
 
 # <img src="./icon/icon.png" alt="BRAHMS" width="3%" style="vertical-align: middle;"> BRAHMS — Three-Wave Mixing Simulator
 
