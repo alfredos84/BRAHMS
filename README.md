@@ -1,4 +1,4 @@
-![BRAHMS](./icon/icon.png)
+<img src="./icon/icon.png" alt="BRAHMS" width="30%">
 
 # BRAHMS — Three-Wave Mixing Simulator
 
