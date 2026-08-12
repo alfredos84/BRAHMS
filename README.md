@@ -1,11 +1,9 @@
 <p align="center">
-  <img src="./icon/icon.png" alt="BRAHMS" width="20%">
+  <img src="./icon/icon.png" alt="BRAHMS" width="10%">
 </p>
 
 
-BRAHMS — Three-Wave Mixing Simulator
-
-% # <img src="./icon/icon.png" alt="BRAHMS" width="3%" style="vertical-align: middle;"> BRAHMS — Three-Wave Mixing Simulator
+# BRAHMS — Three-Wave Mixing Simulator
 
 A cross-platform GUI for simulating three-wave mixing processes (SHG, SFG, OPG, DFG) in nonlinear crystals, with both a GPU (CUDA) and a CPU (OpenMP) simulation engine. BRAHMS was originally designed to run on GPU — that is the recommended engine for production runs — and the CPU/OpenMP engine was added afterwards so the app also runs on machines without an NVIDIA GPU. The app allows you to load your own nonlinear crystals and use them to simulate three-wave mixing processes, including the effects of linear and nonlinear absorption, dispersion, and diffraction, considering both pulsed and continuous-wave (cw) regimes.
 
