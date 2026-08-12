@@ -1,4 +1,7 @@
-<img src="./icon/icon.png" alt="BRAHMS" width="30%">
+<p align="center">
+  <img src="./icon/icon.png" alt="BRAHMS" width="20%">
+</p>
+
 
 # BRAHMS — Three-Wave Mixing Simulator
 
